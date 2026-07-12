@@ -1,0 +1,13 @@
+[Unit]
+Description=Create encrypted backup for np-site
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/np-site
+Environment=NP_SITE_ROOT=/srv/np-site
+ExecStart=/opt/np-site/scripts/backup.sh
+User=root
+Group=root
+UMask=0077

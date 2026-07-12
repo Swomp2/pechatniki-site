@@ -1,0 +1,378 @@
+/* =========================
+   Hero формы обращения
+   ========================= */
+
+.page--create-problem .local-problems {
+  position: relative;
+  overflow: hidden;
+  max-width: none;
+  width: 100%;
+  margin-bottom: 32px;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(
+      circle at 12% 18%,
+      color-mix(in srgb, var(--color-accent) 18%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-card) 92%, transparent),
+      color-mix(in srgb, var(--color-brand-subtle) 82%, transparent)
+    );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--create-problem .local-problems::after {
+  content: "";
+  position: absolute;
+  right: -64px;
+  bottom: -76px;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.page--create-problem .local-problems > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--create-problem .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0 0 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-brand-soft) 72%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.page--create-problem .local-problems h1 {
+  max-width: min(100%, 1120px);
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.page--create-problem .local-problems p:not(.eyebrow) {
+  max-width: 660px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 18px;
+}
+
+/* =========================
+   Карточка и поля формы
+   ========================= */
+
+.page--create-problem .card {
+  max-width: none;
+  width: 100%;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-card) 94%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.page--create-problem .problem-form {
+  display: grid;
+  gap: 22px;
+}
+
+/* Honeypot остаётся в DOM для простых ботов, но недоступен обычному пользователю. */
+.page--create-problem .form-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.page--create-problem .problem-form h2 {
+  margin: 18px 0 -6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-heading);
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.page--create-problem .problem-form .muted {
+  margin: -4px 0 0;
+  color: var(--color-text-muted);
+}
+
+.page--create-problem .form-field {
+  display: grid;
+  gap: 8px;
+}
+
+.page--create-problem .form-field label,
+.page--create-problem .checkbox-row {
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.page--create-problem .form-field input,
+.page--create-problem .form-field textarea,
+.page--create-problem .form-field select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-page) 96%, transparent);
+  color: var(--color-text);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 36%, transparent);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.page--create-problem .form-field input,
+.page--create-problem .form-field select {
+  min-height: 48px;
+  padding: 0 15px;
+}
+
+.page--create-problem .form-field textarea {
+  min-height: 150px;
+  resize: vertical;
+  padding: 13px 15px;
+}
+
+.page--create-problem .form-field input:hover,
+.page--create-problem .form-field textarea:hover,
+.page--create-problem .form-field select:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-card-hover);
+}
+
+.page--create-problem .form-field input:focus,
+.page--create-problem .form-field textarea:focus,
+.page--create-problem .form-field select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+  background: var(--color-page);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-border) 36%, transparent);
+}
+
+.page--create-problem .form-field input[type="file"] {
+  min-height: auto;
+  padding: 14px;
+  border-style: dashed;
+  cursor: pointer;
+}
+
+/* =========================
+   Ошибки, чекбоксы и upload evidence
+   ========================= */
+
+.page--create-problem .form-field input[type="file"]::file-selector-button {
+  margin-right: 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 9px 13px;
+  background: var(--color-accent);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.page--create-problem
+  .form-field
+  input[type="file"]::file-selector-button:hover {
+  background: var(--color-accent-hover);
+}
+
+.page--create-problem
+  .form-field
+  input[type="file"]::file-selector-button:active {
+  background: var(--color-accent-active);
+  transform: translateY(1px);
+}
+
+.page--create-problem .form-field small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.page--create-problem .form-warning {
+  display: block;
+  min-height: 20px;
+  color: #b34700;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.page--create-problem .errorlist {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #b3261e;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.page--create-problem .errorlist li {
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, #b3261e 28%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #b3261e 9%, transparent);
+}
+
+.page--create-problem .checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: fit-content;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-brand-subtle) 74%, transparent);
+  cursor: pointer;
+}
+
+.page--create-problem .checkbox-row input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.page--create-problem .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 50px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 22px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.page--create-problem .button-primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 14px 26px
+    color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.page--create-problem .button-primary:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px
+    color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+.page--create-problem .button-primary:active {
+  background: var(--color-accent-active);
+  transform: translateY(0);
+  box-shadow: 0 10px 18px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.page--create-problem .button-primary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.page--create-problem .problem-form-checkbox {
+  margin-top: -4px;
+}
+
+.page--create-problem .evidence-files-field {
+  /* Блок появляется только если житель уже обращался в другие инстанции. */
+  padding: var(--section-padding-md);
+  border: 1px dashed
+    color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-brand-subtle) 78%, transparent),
+    color-mix(in srgb, var(--color-page) 84%, transparent)
+  );
+}
+
+.page--create-problem .evidence-files-field[hidden] {
+  display: none;
+}
+
+.page--create-problem .evidence-files-field label {
+  color: var(--color-accent);
+}
+
+.page--create-problem .evidence-files-field input[type="file"] {
+  background: color-mix(in srgb, var(--color-page) 92%, transparent);
+}
+
+/* =========================
+   Мобильная адаптация формы
+   ========================= */
+
+@media (max-width: 760px) {
+  .page--create-problem .local-problems {
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--create-problem .local-problems p:not(.eyebrow) {
+    font-size: 16px;
+  }
+
+  .page--create-problem .card {
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--create-problem .problem-form {
+    gap: 18px;
+  }
+
+  .page--create-problem .button {
+    width: 100%;
+  }
+}

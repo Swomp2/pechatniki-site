@@ -1,0 +1,101 @@
+/* =========================
+   Настройки плавных переходов страниц
+   ========================= */
+
+:root {
+  /* JS читает эти переменные, чтобы длительность и расстояние анимации
+     можно было менять из CSS без правки скрипта. */
+  --page-transition-duration-ms: 400;
+  --page-transition-distance: 10px;
+  --page-transition-easing: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+html {
+  /* scrollbar-gutter предотвращает горизонтальный скачок при скрытии скролла. */
+  scrollbar-gutter: stable;
+}
+
+.page {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transform-origin: center top;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+html.page-transition-lock .page {
+  z-index: var(--z-page-transition);
+}
+
+html.page-transition-lock,
+html.page-transition-lock body {
+  cursor: progress;
+}
+
+/* Пока меняется <main>, блокируем прокрутку, чтобы старая и новая страницы
+   не разъехались по вертикали во время анимации. */
+html.page-transition-lock {
+  overflow-y: hidden;
+}
+
+.page-background-transition-layer {
+  position: fixed;
+  top: var(--page-background-transition-offset-y, 0);
+  right: 0;
+  left: 0;
+  z-index: 0;
+  height: var(--page-background-transition-height, 100vh);
+  min-height: 100vh;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 100% var(--page-background-transition-height, 100vh);
+  will-change: opacity;
+  transform: translateZ(0);
+  contain: paint;
+}
+
+html.page-background-transitioning body {
+  isolation: isolate;
+}
+
+html.page-background-transitioning
+  body
+  > :not(.page-background-transition-layer):not(.theme-background-wave):not(
+    .site-header
+  ):not(.photo-lightbox):not(.page) {
+  position: relative;
+  z-index: var(--z-page);
+}
+
+html.page-background-transitioning body > .page {
+  position: relative;
+  z-index: var(--z-page-transition);
+}
+
+html.page-background-transitioning body > .site-header {
+  z-index: var(--z-header);
+}
+
+html.page-background-transitioning body > .photo-lightbox {
+  z-index: var(--z-lightbox);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    opacity: 1;
+    transform: none;
+  }
+
+  html.page-transition-lock,
+  html.page-transition-lock body {
+    cursor: auto;
+  }
+
+  html.page-transition-lock {
+    overflow-y: auto;
+  }
+
+  .page-background-transition-layer {
+    display: none;
+  }
+}

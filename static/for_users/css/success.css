@@ -1,0 +1,364 @@
+.page--success {
+  display: grid;
+  gap: 28px;
+}
+
+.page--success .success-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-areas:
+    "mark title"
+    "mark text"
+    "actions actions";
+  column-gap: 24px;
+  row-gap: 0;
+  align-items: start;
+  overflow: hidden;
+  max-width: none;
+  width: 100%;
+  padding: var(--section-padding-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(
+      circle at 14% 18%,
+      color-mix(in srgb, #35a66f 20%, transparent) 0%,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 12%,
+      color-mix(in srgb, var(--color-brand) 14%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-card) 94%, transparent),
+      color-mix(in srgb, var(--color-brand-subtle) 86%, transparent)
+    );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--success .success-hero::before {
+  content: "";
+  position: absolute;
+  right: -86px;
+  bottom: -104px;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #35a66f 14%, transparent);
+  pointer-events: none;
+}
+
+.page--success .success-hero::after {
+  content: "";
+  position: absolute;
+  right: 44px;
+  top: 42px;
+  width: 96px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: #35a66f;
+  box-shadow:
+    0 18px 0 color-mix(in srgb, #35a66f 42%, transparent),
+    0 36px 0 color-mix(in srgb, #35a66f 22%, transparent);
+  pointer-events: none;
+}
+
+.page--success .success-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--success .success-mark {
+  grid-area: mark;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, #35a66f 36%, var(--color-border));
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #35a66f 18%, var(--color-page)),
+    color-mix(in srgb, var(--color-brand-subtle) 80%, transparent)
+  );
+  color: #35a66f;
+  font-family: var(--font-heading);
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 18px 34px color-mix(in srgb, #35a66f 18%, transparent);
+}
+
+.page--success .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0 0 16px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, #35a66f 28%, var(--color-border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, #35a66f 10%, var(--color-brand-soft));
+  color: #2f8f60;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+html[data-theme="dark"] .page--success .eyebrow {
+  color: #6fe0a1;
+}
+
+.page--success .success-hero h1 {
+  grid-area: title;
+  max-width: none;
+  margin: 0;
+  padding-right: 160px;
+  font-family: var(--font-heading);
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.page--success .success-hero p:not(.eyebrow) {
+  grid-area: text;
+  max-width: 820px;
+  margin: 22px 0 0;
+  color: var(--color-text-muted);
+  font-size: clamp(17px, 2vw, 20px);
+}
+
+.page--success .success-card {
+  position: relative;
+  overflow: hidden;
+  max-width: none;
+  width: 100%;
+  padding: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 96%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 62%, transparent)
+  );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--success .success-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(
+    180deg,
+    #35a66f,
+    color-mix(in srgb, #35a66f 30%, transparent)
+  );
+}
+
+.page--success .success-card::after {
+  content: "";
+  position: absolute;
+  right: -76px;
+  bottom: -84px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #35a66f 8%, transparent);
+  pointer-events: none;
+}
+
+.page--success .success-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--success .success-card h2 {
+  margin: 0 0 14px;
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.page--success .success-card > p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 17px;
+}
+
+.page--success .success-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 26px;
+}
+
+.page--success .success-steps article {
+  padding: var(--section-padding-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+}
+
+.page--success .success-steps span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: #35a66f;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.page--success .success-steps h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.page--success .success-steps p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+.page--success .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+  grid-area: actions;
+}
+
+.page--success .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 22px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.page--success .button-primary {
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 14px 26px
+    color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.page--success .button-primary:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px
+    color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+.page--success .button-primary:active {
+  background: var(--color-accent-active);
+  transform: translateY(0);
+  box-shadow: 0 10px 18px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.page--success .button-secondary {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-page) 78%, transparent);
+  color: var(--color-text);
+}
+
+.page--success .button-secondary:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-card-hover);
+  transform: translateY(-1px);
+}
+
+.page--success .button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 860px) {
+  .page--success .success-hero {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "mark"
+      "title"
+      "text"
+      "actions";
+    row-gap: 14px;
+  }
+
+  .page--success .success-hero h1 {
+    padding-right: 0;
+  }
+
+  .page--success .success-mark {
+    width: 62px;
+    height: 62px;
+  }
+
+  .page--success .success-hero::after {
+    display: none;
+  }
+
+  .page--success .success-card {
+    padding: var(--section-padding-lg);
+    border-radius: var(--radius-lg);
+  }
+
+  .page--success .success-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .page--success .success-hero {
+    padding: 10px;
+  }
+
+  .page--success .success-mark {
+    width: 62px;
+    height: 62px;
+    font-size: 30px;
+  }
+
+  .page--success .hero-actions {
+    display: grid;
+  }
+
+  .page--success .button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Сообщить о проблеме{% endblock %}
+
+{% block page_class %}page--create-problem{% endblock %}
+
+{% block content %}
+  {# Hero формы: кратко объясняет, какие данные ждём от жителя. #}
+  <section class="local-problems">
+    <h1>Сообщить о проблеме</h1>
+
+    <p>
+      Опишите вашу проблему максимально подробно, укажите адрес,
+      приложите документы(если вам уже отвечали другие инстанции) и прикрепите фото.
+      Контактные данные можно не оставлять
+    </p>
+  </section>
+
+  {# Основная форма: Django валидирует upload и скрытые anti-spam поля на сервере. #}
+  <section class="card">
+    <form class="problem-form" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {{ form.non_field_errors }}
+      {{ form.started_at }}
+
+      {# Honeypot скрыт CSS-ом; заполненное поле считается спамом. #}
+      <div class="form-honeypot" aria-hidden="true">
+        {{ form.website.label_tag }}
+        {{ form.website }}
+      </div>
+
+      <div class="form-field">
+        {{ form.title.label_tag }}
+        {{ form.title }}
+        {{ form.title.errors }}
+      </div>
+
+      <div class="form-field">
+        {{ form.description.label_tag }}
+        {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+
+      <div class="form-field">
+        {{ form.address.label_tag }}
+        {{ form.address }}
+        {{ form.address.errors }}
+      </div>
+
+      <div class="form-field">
+        {{ form.category.label_tag }}
+        {{ form.category }}
+        {{ form.category.errors }}
+      </div>
+
+      <h2>Контакт для обратной связи</h2>
+
+      <p class="muted">Телефон необязателен и виден только администраторам</p>
+
+      <div class="form-field">
+        {{ form.contact_phone.label_tag }}
+        {{ form.contact_phone }}
+        {{ form.contact_phone.errors }}
+      </div>
+
+      <h2>Фотографии</h2>
+
+      <div class="form-field">
+        {{ form.photos.label_tag }}
+        {{ form.photos }}
+        {{ form.photos.errors }}
+
+        <small id="photos-help" class="muted">
+          Можно загрузить не более 5 фотографий форматов JPG, PNG и WebP
+        </small>
+
+        <span id="photos-warning" class="form-warning"></span>
+      </div>
+
+      <h2>Предыдущие обращения</h2>
+
+      <p class="muted">
+        Отметьте этот пункт, если вы уже обращались куда то до нас
+      </p>
+
+      <label class="checkbox-row problem-form-checkbox">
+        {{ form.has_prior_attempts }}
+        <span>{{ form.has_prior_attempts.label }}</span>
+      </label>
+
+      {{ form.has_prior_attempts.errors }}
+
+      <div class="form-field evidence-files-field" data-evidence-files-field hidden>
+        {{ form.evidence_files.label_tag }}
+        {{ form.evidence_files }}
+        {{ form.evidence_files.errors }}
+
+        <small class="muted">
+          Можно приложить до 10 файлов: PDF, JPG, PNG или WebP.
+          Например: ответы ведомств, отказы, отписки, скриншоты обращений
+        </small>
+      </div>
+
+      <button class="button button-primary" type="submit">
+        Отправить обращение
+      </button>
+    </form>
+  </section>
+{% endblock %}

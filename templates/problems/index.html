@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_class %}page--index{% endblock %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+  {# Верхний hero-блок: коротко объясняет, кто мы и зачем сайт. #}
+  <section class="local-problems">
+    <p class="eyebrow">Кто мы?</p>
+
+    <h1>Мы неравнодушные к Печатникам люди!</h1>
+
+    <p>
+      Мы те, кто помогает решать проблемы района своими силами.
+      Но и с небольшой поддержкой партии Новые Люди;)
+    </p>
+  </section>
+
+  {# Галерея участников: карточки можно добавлять без изменения CSS-сетки. #}
+  <section class="index-hero" data-lightbox-gallery="team-gallery">
+    <div class="index-hero__header">
+      <h2>Давайте познакомимся!</h2>
+
+      <p>
+        Героев же должны знать в лицо...
+      </p>
+    </div>
+
+    <div class="people-gallery__grid">
+      <figure class="captioned-photo people-gallery__item">
+        <div class="captioned-photo__media">
+          <img
+            class="captioned-photo__image people-gallery__image"
+            src="{% static 'for_users/img/photos/photo3.jpg' %}"
+            alt="Это Денис"
+            width="663"
+            height="1058"
+            loading="lazy"
+            decoding="async"
+            data-lightbox-image
+          />
+        </div>
+
+        <figcaption class="captioned-photo__caption">
+          Денис — координатор ячейки
+        </figcaption>
+      </figure>
+
+      <figure class="captioned-photo people-gallery__item">
+        <div class="captioned-photo__media">
+          <img
+            class="captioned-photo__image people-gallery__image"
+            src="{% static 'for_users/img/photos/photo2.jpg' %}"
+            alt="Это Свят"
+            width="1880"
+            height="2831"
+            loading="lazy"
+            decoding="async"
+            data-lightbox-image
+          />
+        </div>
+
+        <figcaption class="captioned-photo__caption">
+          Свят — обычный житель Печатников
+        </figcaption>
+      </figure>
+  </section>
+
+  {# Блок о работе ячейки: текст слева и компактные шаги справа. #}
+  <section class="cell-info">
+    <div class="cell-info__content">
+      <h2>Что мы делаем?</h2>
+
+      <p>
+        Стараемся быть ближе к вам: ходим по улицам, спрашивая вас о проблемах
+        района, поддерживаем вас и решаем задачи, на которые у других не хватает времени.
+      </p>
+
+      <p>
+        Наша небольшая задача заключается в том, чтобы вам было приятнее находиться в
+        лучшем районе Москвы — Печатниках. Мы активно на это работаем;)
+      </p>
+    </div>
+
+    <div class="cell-info__aside">
+      <article>
+        <span>01</span>
+        <h3>Принимаем обращения</h3>
+        <p>Которые вы можете оставить на сайте или прислать нам в личку</p>
+      </article>
+
+      <article>
+        <span>02</span>
+        <h3>Обрабатываем</h3>
+        <p>
+          Мы смотрим на текст заявки, проверяем корректность адреса,
+          внимательно вглядываемся в фото и обязательно смотрим, чтобы вы не
+          матерились...
+        </p>
+      </article>
+
+      <article>
+        <span>03</span>
+        <h3>Решаем вашу проблему</h3>
+        <p>
+          Посмотреть на всё, что нам предстоит сделать, вы можете прямо на этом
+          сайте, а также вы можете поставить плюсик наиболее волнующей вас
+          проблеме. Мы постараемся решить её пораньше.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  {# Призыв к отправке обращения ведёт пользователя к форме проблемы. #}
+  <section class="index-section index-section--steps">
+    <div class="index-section__header">
+      <p class="eyebrow">
+        Видите в районе проблему?
+      </p>
+
+      <h2>Тогда скорее пишите нам!</h2>
+
+      <p>
+        Если вдруг вышестоящие органы власти присылают вам отписки,
+        игнорируют или делают работу плохо, мы поможем.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div>
+      <h2>Наша партия открыта всем</h2>
+
+      <p>
+        Мы, как районная ячейка, берём пример. Поэтому код этого сайта тоже открыт.
+        Будем рады, если вы сообщите о баге, откроете issue на github, поставите там же звёздочку
+        или просто напишете приятные слова)
+      </p>
+
+      <p>
+        По вопросам вступления в партию пишите Денису, он вас проконсультирует и всё подробно расскажет.
+        Всегда вас ждём!
+      </p>
+    </div>
+  </section>
+
+{% endblock %}

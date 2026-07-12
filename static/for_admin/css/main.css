@@ -1,0 +1,337 @@
+/* ============================================================
+   База темы Django admin
+   ============================================================ */
+
+@font-face {
+  font-family: "Golos Text";
+  src: url("../../fonts/Golos/GolosText-VariableFont_wght.ttf")
+    format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Unbounded";
+  src: url("../../fonts/Unbounded/Unbounded-VariableFont_wght.ttf")
+    format("truetype");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --nl-admin-font-heading: "Unbounded", system-ui, sans-serif;
+  --nl-admin-font-body:
+    "Golos Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  --nl-admin-bg: #eef8f8;
+  --nl-admin-page: #ffffff;
+  --nl-admin-panel: #ffffff;
+  --nl-admin-panel-hover: #f3fbfb;
+
+  --nl-admin-header: #071111;
+  --nl-admin-header-soft: #0f2020;
+
+  --nl-admin-text: #111111;
+  --nl-admin-muted: #536464;
+  --nl-admin-soft: #748282;
+
+  --nl-admin-brand: #47c2c0;
+  --nl-admin-accent: #098883;
+  --nl-admin-accent-hover: #007772;
+  --nl-admin-accent-active: #005f5b;
+
+  --nl-admin-brand-soft: #d7f0ef;
+  --nl-admin-brand-subtle: #eef8f8;
+
+  --nl-admin-border: #c7dedd;
+  --nl-admin-border-strong: #98c3c1;
+
+  --nl-admin-danger: #c83b32;
+  --nl-admin-warning: #b66a00;
+  --nl-admin-success: #2f8f60;
+  --nl-admin-info: #356fd6;
+
+  --nl-admin-radius-xl: 24px;
+  --nl-admin-radius-lg: 18px;
+  --nl-admin-radius-md: 14px;
+  --nl-admin-radius-sm: 10px;
+  --nl-admin-radius-pill: 999px;
+
+  --primary: var(--nl-admin-accent);
+  --secondary: var(--nl-admin-header-soft);
+  --accent: var(--nl-admin-brand);
+
+  --body-bg: var(--nl-admin-bg);
+  --body-fg: var(--nl-admin-text);
+  --body-quiet-color: var(--nl-admin-muted);
+  --body-medium-color: var(--nl-admin-soft);
+
+  --link-fg: var(--nl-admin-accent);
+  --link-hover-color: var(--nl-admin-accent-hover);
+  --link-selected-fg: var(--nl-admin-accent-active);
+
+  --hairline-color: var(--nl-admin-border);
+  --border-color: var(--nl-admin-border);
+
+  --button-bg: var(--nl-admin-accent);
+  --button-hover-bg: var(--nl-admin-accent-hover);
+  --default-button-bg: var(--nl-admin-accent);
+  --default-button-hover-bg: var(--nl-admin-accent-hover);
+  --delete-button-bg: var(--nl-admin-danger);
+
+  --darkened-bg: #e3f2f1;
+  --selected-bg: #d7f0ef;
+  --selected-row: #eef8f8;
+}
+
+html[data-theme="dark"],
+html[data-theme="auto"] {
+  --nl-admin-bg: #071111;
+  --nl-admin-page: #0b1717;
+  --nl-admin-panel: #122525;
+  --nl-admin-panel-hover: #173030;
+
+  --nl-admin-header: #020606;
+  --nl-admin-header-soft: #0b1717;
+
+  --nl-admin-text: #f0f7f7;
+  --nl-admin-muted: #a7baba;
+  --nl-admin-soft: #789191;
+
+  --nl-admin-brand: #55d6d3;
+  --nl-admin-accent: #48d2ce;
+  --nl-admin-accent-hover: #66e0dd;
+  --nl-admin-accent-active: #2fbdb9;
+
+  --nl-admin-brand-soft: #173f3e;
+  --nl-admin-brand-subtle: #102b2a;
+
+  --nl-admin-border: #294242;
+  --nl-admin-border-strong: #3f6665;
+
+  --nl-admin-danger: #ff7b72;
+  --nl-admin-warning: #f2b84b;
+  --nl-admin-success: #6fe0a1;
+  --nl-admin-info: #82a8ff;
+
+  --body-bg: var(--nl-admin-bg);
+  --body-fg: var(--nl-admin-text);
+  --body-quiet-color: var(--nl-admin-muted);
+  --body-medium-color: var(--nl-admin-soft);
+
+  --darkened-bg: #0f2020;
+  --selected-bg: #173f3e;
+  --selected-row: #102b2a;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="auto"] {
+    --nl-admin-bg: #eef8f8;
+    --nl-admin-page: #ffffff;
+    --nl-admin-panel: #ffffff;
+    --nl-admin-panel-hover: #f3fbfb;
+
+    --nl-admin-header: #071111;
+    --nl-admin-header-soft: #0f2020;
+
+    --nl-admin-text: #111111;
+    --nl-admin-muted: #536464;
+    --nl-admin-soft: #748282;
+
+    --nl-admin-brand: #47c2c0;
+    --nl-admin-accent: #098883;
+    --nl-admin-accent-hover: #007772;
+    --nl-admin-accent-active: #005f5b;
+
+    --nl-admin-brand-soft: #d7f0ef;
+    --nl-admin-brand-subtle: #eef8f8;
+
+    --nl-admin-border: #c7dedd;
+    --nl-admin-border-strong: #98c3c1;
+
+    --body-bg: var(--nl-admin-bg);
+    --body-fg: var(--nl-admin-text);
+  }
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--nl-admin-bg);
+}
+
+body {
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      color-mix(in srgb, var(--nl-admin-accent) 12%, transparent) 0%,
+      transparent 34%
+    ),
+    var(--nl-admin-bg);
+  color: var(--nl-admin-text);
+  font-family: var(--nl-admin-font-body);
+}
+
+a:link,
+a:visited {
+  color: var(--nl-admin-accent);
+}
+
+a:hover {
+  color: var(--nl-admin-accent-hover);
+}
+
+#container {
+  background: transparent;
+}
+
+#header {
+  min-height: 58px;
+  padding: 12px 28px;
+  background: linear-gradient(
+    135deg,
+    var(--nl-admin-header),
+    var(--nl-admin-header-soft)
+  );
+  color: #ffffff;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--nl-admin-brand) 24%, transparent);
+  box-shadow: 0 16px 40px color-mix(in srgb, #000000 24%, transparent);
+}
+
+#branding h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  color: #ffffff;
+  font-family: var(--nl-admin-font-heading);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+#branding h1::before {
+  content: "";
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 30% 24%, #ffffff 0%, transparent 32%),
+    linear-gradient(135deg, var(--nl-admin-brand), var(--nl-admin-accent));
+  box-shadow: 0 10px 24px
+    color-mix(in srgb, var(--nl-admin-accent) 28%, transparent);
+}
+
+#branding h1 a:link,
+#branding h1 a:visited {
+  color: #ffffff;
+}
+
+#user-tools {
+  color: color-mix(in srgb, #ffffff 72%, transparent);
+  font-size: 12px;
+}
+
+#user-tools a {
+  color: #ffffff;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--nl-admin-brand) 46%, transparent);
+}
+
+div.breadcrumbs {
+  padding: 12px 28px;
+  background: color-mix(in srgb, var(--nl-admin-page) 88%, transparent);
+  color: var(--nl-admin-muted);
+  border-bottom: 1px solid var(--nl-admin-border);
+}
+
+div.breadcrumbs a {
+  color: var(--nl-admin-accent);
+}
+
+.main {
+  background: transparent;
+}
+
+#content {
+  padding: 28px;
+}
+
+#content h1 {
+  margin: 0 0 22px;
+  color: var(--nl-admin-text);
+  font-family: var(--nl-admin-font-heading);
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+}
+
+.module,
+.inline-group,
+#changelist,
+#changelist-filter,
+.submit-row,
+.paginator {
+  border: 1px solid var(--nl-admin-border);
+  border-radius: var(--nl-admin-radius-xl);
+  background: color-mix(in srgb, var(--nl-admin-panel) 96%, transparent);
+  box-shadow: 0 18px 44px color-mix(in srgb, #000000 8%, transparent);
+  overflow: hidden;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+  padding: 13px 16px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--nl-admin-accent) 14%, var(--nl-admin-panel)),
+    color-mix(in srgb, var(--nl-admin-brand-soft) 74%, var(--nl-admin-panel))
+  );
+  color: var(--nl-admin-text);
+  font-family: var(--nl-admin-font-heading);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+a.button {
+  border: 0;
+  border-radius: var(--nl-admin-radius-pill);
+  background: var(--nl-admin-accent);
+  color: #ffffff;
+  font-family: var(--nl-admin-font-heading);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+input,
+textarea,
+select,
+.vTextField {
+  border: 1px solid var(--nl-admin-border);
+  border-radius: var(--nl-admin-radius-sm);
+  background: var(--nl-admin-page);
+  color: var(--nl-admin-text);
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+.vTextField:focus {
+  border-color: var(--nl-admin-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--nl-admin-accent) 22%, transparent);
+}

@@ -1,0 +1,59 @@
+# Сгенерированные питоном файлы
+__pycache__/
+*__pycache__*
+**__pycache__/
+*.py[oc]
+.python-version
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Виртуальные окружения
+.venv
+
+# Локальное окружение и секреты
+.env
+.env.*
+
+# Локальные данные
+db.sqlite3
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-wal
+*.db-shm
+*.log
+media/
+staticfiles/
+backups/
+
+# Локальные бэкапы и временные копии
+*.bak
+*.backup
+*.old
+*.orig
+
+# .git
+.git
+.gitignore
+
+# Файлы разработки и документации не нужны в runtime image
+Dockerfile
+docker-compose*.yml
+docker-compose*.yaml
+README*
+problems/tests.py

@@ -1,0 +1,695 @@
+/* =========================
+   Липкая шапка и слои
+   ========================= */
+
+/* Шапка стоит выше page-transition слоёв, но сама не перекрывает клики
+   вне внутреннего контейнера благодаря pointer-events: none на обёртке. */
+.site-header {
+  position: sticky;
+  top: 14px;
+  z-index: var(--z-header);
+  padding-block: 14px;
+  pointer-events: none;
+}
+
+.header-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "logo theme"
+    "nav nav";
+  gap: 10px;
+  min-height: auto;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 88%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 76%, transparent)
+  );
+  box-shadow:
+    var(--shadow-soft),
+    0 1px 0 color-mix(in srgb, #ffffff 22%, transparent) inset;
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+/* =========================
+   Логотип и меню контактов
+   ========================= */
+
+.logo {
+  grid-area: logo;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 64px;
+  padding: 6px 17px 6px 7px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 34%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-page) 34%, transparent);
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.logo:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-page) 66%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px
+    color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.logo:active {
+  transform: translateY(0);
+}
+
+.logo:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.logo-menu {
+  grid-area: logo;
+  position: relative;
+  z-index: var(--z-header-dropdown);
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Невидимая зона под логотипом помогает не закрывать dropdown при движении мыши
+   от логотипа к меню. На тач-устройствах меню открывает JavaScript. */
+.logo-menu::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: min(100%, 320px);
+  height: 14px;
+  pointer-events: none;
+}
+
+/* Dropdown выше самой шапки: иначе он может прятаться под соседними слоями
+   во время анимаций темы и переходов страниц. */
+.logo-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: var(--z-header-dropdown);
+  display: grid;
+  gap: 8px;
+  width: min(400px, calc(100vw - 40px));
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 94%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 82%, transparent)
+  );
+  box-shadow:
+    var(--shadow-soft),
+    0 24px 60px color-mix(in srgb, #000000 18%, transparent);
+  backdrop-filter: blur(18px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: left top;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.logo-dropdown__item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.logo-dropdown__item:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+  transform: translateY(-1px);
+}
+
+.logo-dropdown__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background:
+    radial-gradient(
+      circle at 32% 24%,
+      color-mix(in srgb, #ffffff 62%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--color-brand), var(--color-accent));
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 10px 22px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.logo-dropdown__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.logo-dropdown__text strong {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logo-dropdown__text small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logo-dropdown__mark--github {
+  background:
+    radial-gradient(
+      circle at 32% 24%,
+      color-mix(in srgb, #ffffff 72%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--color-brand-soft), var(--color-brand));
+  box-shadow: 0 10px 22px
+    color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.logo-dropdown__mark--github::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background: #111111;
+
+  -webkit-mask: url("../img/logos/github.svg") center / contain no-repeat;
+
+  mask: url("../img/logos/github.svg") center / contain no-repeat;
+}
+
+.logo-dropdown__item:hover .logo-dropdown__mark--github {
+  background:
+    radial-gradient(
+      circle at 32% 24%,
+      color-mix(in srgb, #ffffff 78%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--color-brand-soft), var(--color-accent-hover));
+}
+
+.logo-dropdown__mark--telegram {
+  background: transparent;
+  box-shadow: none;
+}
+
+.logo-dropdown__mark--telegram img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  border-radius: 999px;
+  box-shadow: 0 10px 22px
+    color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.logo-dropdown__item:hover .logo-dropdown__mark--telegram img {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.logo-dropdown__mark--telegram img {
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.logo-menu.is-open .logo-dropdown,
+.logo-menu:not(.logo-menu--touch):focus-within .logo-dropdown {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .logo-menu:hover .logo-dropdown {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  .logo-menu:hover::after {
+    pointer-events: auto;
+  }
+}
+
+.logo-mark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.logo-mark--crest {
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 6px;
+  background: color-mix(in srgb, #ffffff 88%, transparent);
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--color-accent) 8%, transparent),
+    0 1px 0 color-mix(in srgb, #ffffff 44%, transparent) inset;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.logo-mark--crest::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, #ffffff 92%, transparent);
+  pointer-events: none;
+}
+
+.logo-mark--crest img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  filter: saturate(0.9) contrast(0.96);
+}
+
+.logo:hover .logo-mark--crest {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, #ffffff 96%, transparent);
+}
+
+.logo-text {
+  min-width: 0;
+  overflow: visible;
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* =========================
+   Нижний логотип партии
+   ========================= */
+
+.site-footer {
+  position: relative;
+  z-index: var(--z-page);
+  margin-top: -70px;
+  padding: 0 0 32px;
+}
+
+.site-footer__inner {
+  display: flex;
+  justify-content: center;
+}
+
+.site-footer__party-link {
+  display: grid;
+  place-items: center;
+  width: min(230px, 58vw);
+  min-height: 86px;
+  text-decoration: none;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast),
+    filter var(--transition-fast);
+}
+
+.site-footer__party-link:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.site-footer__party-link:active {
+  transform: translateY(0);
+}
+
+.site-footer__party-link:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 8px;
+}
+
+.site-footer__party-logo {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  transition: opacity var(--transition-fast);
+}
+
+.site-footer__party-logo--dark {
+  opacity: 0;
+}
+
+html[data-theme="dark"] .site-footer__party-logo--light {
+  opacity: 0;
+}
+
+html[data-theme="dark"] .site-footer__party-logo--dark {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .site-footer__party-logo--light {
+    opacity: 0;
+  }
+
+  html:not([data-theme="light"]) .site-footer__party-logo--dark {
+    opacity: 1;
+  }
+}
+
+/* =========================
+   Переключатель темы
+   ========================= */
+
+.theme-toggle {
+  grid-area: theme;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  justify-self: end;
+  min-height: 46px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 12px 0 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+  color: var(--color-text);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:active {
+  transform: translateY(0);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.theme-toggle__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background:
+    radial-gradient(
+      circle at 32% 26%,
+      color-mix(in srgb, #ffffff 64%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--color-brand), var(--color-accent));
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 10px 22px
+    color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.theme-toggle__text {
+  color: inherit;
+}
+
+html[data-theme="dark"] .theme-toggle__icon {
+  background:
+    radial-gradient(
+      circle at 62% 34%,
+      color-mix(in srgb, #ffffff 52%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(135deg, #173f3e, var(--color-accent));
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .theme-toggle__icon {
+    background:
+      radial-gradient(
+        circle at 62% 34%,
+        color-mix(in srgb, #ffffff 52%, transparent) 0%,
+        transparent 30%
+      ),
+      linear-gradient(135deg, #173f3e, var(--color-accent));
+  }
+}
+
+/* =========================
+   Основная навигация
+   ========================= */
+
+.site-nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-page) 42%, transparent);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 0 auto;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 13px;
+  color: var(--color-text-muted);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.site-nav a:hover {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+  color: var(--color-text);
+  transform: translateY(-1px);
+}
+
+.site-nav a:active {
+  transform: translateY(0);
+}
+
+.site-nav a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+/* =========================
+   Адаптация шапки
+   ========================= */
+
+@media (max-width: 760px) {
+  .site-header {
+    top: 8px;
+    padding-block: 8px;
+  }
+
+  .header-inner {
+    gap: 8px;
+    padding: 8px;
+    border-radius: var(--radius-lg);
+  }
+
+  .logo {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 46px;
+    padding: 5px 10px 5px 6px;
+  }
+
+  .logo-mark {
+    width: 46px;
+    height: 46px;
+  }
+
+  .logo-mark--crest {
+    padding: 5px;
+  }
+
+  .logo-text {
+    font-size: 13px;
+    line-height: 1.12;
+  }
+
+  .site-footer {
+    margin-top: -34px;
+    padding-bottom: 24px;
+  }
+
+  .site-footer__party-link {
+    width: min(180px, 62vw);
+    min-height: 72px;
+  }
+
+  .logo-dropdown {
+    top: calc(100% + 8px);
+    width: min(330px, calc(100vw - 32px));
+    border-radius: var(--radius-lg);
+  }
+
+  .logo-dropdown__item {
+    grid-template-columns: 38px minmax(0, 1fr);
+    min-height: 54px;
+  }
+
+  .logo-dropdown__mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 13px;
+  }
+
+  .logo-dropdown__text strong {
+    font-size: 12px;
+  }
+
+  .logo-dropdown__text small {
+    font-size: 13px;
+  }
+
+  .logo-dropdown__mark--telegram img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .site-nav {
+    padding: 5px;
+    border-radius: var(--radius-lg);
+  }
+
+  .site-nav a {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding-inline: 12px;
+    font-size: 11px;
+  }
+
+  .theme-toggle {
+    min-height: 42px;
+    padding: 0 7px;
+  }
+
+  .theme-toggle__text {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .theme-toggle {
+    width: 42px;
+    padding: 0;
+  }
+
+  .theme-toggle__icon {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+}

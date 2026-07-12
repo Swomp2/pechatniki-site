@@ -1,0 +1,675 @@
+/* =========================
+   Hero главной страницы
+   ========================= */
+
+.page--index .local-problems {
+  position: relative;
+  overflow: hidden;
+  max-width: none;
+  width: 100%;
+  margin-bottom: 34px;
+  padding: var(--section-padding-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    /* color-mix держит декоративные пятна в палитре текущей темы. */
+    radial-gradient(
+      circle at 14% 18%,
+      color-mix(in srgb, var(--color-accent) 20%, transparent) 0%,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 12%,
+      color-mix(in srgb, var(--color-brand) 14%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-card) 94%, transparent),
+      color-mix(in srgb, var(--color-brand-subtle) 86%, transparent)
+    );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--index .local-problems::before {
+  content: "";
+  position: absolute;
+  right: -84px;
+  bottom: -104px;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  pointer-events: none;
+}
+
+.page--index .local-problems::after {
+  content: "";
+  position: absolute;
+  right: 42px;
+  top: 38px;
+  width: 92px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  box-shadow:
+    0 18px 0 color-mix(in srgb, var(--color-accent) 42%, transparent),
+    0 36px 0 color-mix(in srgb, var(--color-accent) 22%, transparent);
+  pointer-events: none;
+}
+
+.page--index .local-problems > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================
+   Галерея участников
+   ========================= */
+
+.page--index .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0 0 16px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-brand-soft) 72%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.page--index .local-problems h1 {
+  max-width: 820px;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(36px, 6vw, 68px);
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+}
+
+.page--index .local-problems p:not(.eyebrow) {
+  max-width: 720px;
+  margin: 22px 0 0;
+  color: var(--color-text-muted);
+  font-size: clamp(17px, 2vw, 20px);
+  line-height: 1.5;
+}
+
+.page--index .index-hero {
+  width: 100%;
+  margin-bottom: 44px;
+}
+
+.page--index .index-hero__header {
+  max-width: 100%;
+  margin-bottom: 24px;
+}
+
+.page--index .index-hero__header h2 {
+  max-width: 100%;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(38px, 6vw, 76px);
+  font-weight: 600;
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  color: var(--color-text);
+}
+
+.page--index .index-hero__header p {
+  max-width: 720px;
+  margin: 20px 0 0;
+  color: var(--color-text-muted);
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.5;
+}
+
+.page--index .captioned-photo {
+  margin: 0;
+}
+
+.page--index .captioned-photo__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-brand-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+.page--index .captioned-photo__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 58%,
+    color-mix(in srgb, #000000 18%, transparent)
+  );
+  pointer-events: none;
+}
+
+.page--index .captioned-photo__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* object-fit: cover сохраняет одинаковый размер карточек,
+     даже если исходные фотографии имеют разные пропорции. */
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+.page--index .captioned-photo__caption {
+  max-width: none;
+  margin: 10px 4px 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* auto-fit позволяет добавлять любое количество карточек:
+   сетка сама переносит их на новую строку без правки HTML/CSS. */
+.page--index .people-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 320px));
+  justify-content: start;
+  align-items: start;
+  gap: 18px;
+  width: 100%;
+}
+
+.page--index .people-gallery__item {
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+}
+
+/* Вертикальное соотношение делает карточки аккуратными портретами
+   и не даёт большим исходникам растягивать главную страницу. */
+.page--index .people-gallery__image {
+  aspect-ratio: 3 / 4;
+}
+
+.page--index .people-gallery__item .captioned-photo__media {
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.page--index .people-gallery__item .captioned-photo__media:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--color-border-strong);
+  box-shadow:
+    var(--shadow-soft),
+    0 18px 40px color-mix(in srgb, #000000 18%, transparent);
+}
+
+/* =========================
+   Информационные секции главной страницы
+   ========================= */
+
+.page--index .index-section {
+  width: 100%;
+  margin-top: 44px;
+}
+
+.page--index .index-section + .index-section {
+  margin-top: 56px;
+}
+
+.page--index .index-section--steps {
+  margin-bottom: 34px;
+  padding-top: 34px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+}
+
+.page--index .index-section__header {
+  max-width: 780px;
+  margin-bottom: 24px;
+}
+
+.page--index .index-section__header h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4vw, 46px);
+  font-weight: 900;
+  line-height: 1.06;
+  letter-spacing: -0.055em;
+  color: var(--color-text);
+}
+
+.page--index .index-section__header p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 16px 0 0;
+  color: var(--color-text-muted);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.page--index .cell-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 22px;
+  width: 100%;
+  margin-bottom: 34px;
+}
+
+.page--index .cell-info__content,
+.page--index .cell-info__aside article,
+.page--index .district-gallery {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 96%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 66%, transparent)
+  );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--index .cell-info__content {
+  padding: var(--section-padding-lg);
+}
+
+.page--index .cell-info__content::after {
+  content: "";
+  position: absolute;
+  right: -72px;
+  bottom: -88px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  pointer-events: none;
+}
+
+.page--index .cell-info__content > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--index .cell-info h2,
+.page--index .district-gallery h2 {
+  max-width: 760px;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1.06;
+  letter-spacing: -0.05em;
+}
+
+.page--index .cell-info p:not(.eyebrow),
+.page--index .district-gallery p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.page--index .cell-info__aside {
+  display: grid;
+  gap: 10px;
+}
+
+.page--index .cell-info__aside article {
+  padding: var(--section-padding-lg);
+}
+
+.page--index .cell-info__aside span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 26px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.page--index .cell-info__aside h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: 17px;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.page--index .cell-info__aside p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* =========================
+   Дополнительные карточки и галереи
+   ========================= */
+
+.page--index .cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 22px;
+  max-width: none;
+  width: 100%;
+}
+
+.page--index .cards-grid--steps {
+  margin-top: 0;
+}
+
+.page--index .card {
+  position: relative;
+  overflow: hidden;
+  min-height: 230px;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 96%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 62%, transparent)
+  );
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.page--index .card::before {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 5px;
+  margin-bottom: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+.page--index .card::after {
+  content: "";
+  position: absolute;
+  right: -72px;
+  bottom: -80px;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  pointer-events: none;
+}
+
+.page--index .card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color-border-strong);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card-hover) 92%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 72%, transparent)
+  );
+  box-shadow:
+    var(--shadow-soft),
+    0 18px 38px color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.page--index .card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--index .card h2 {
+  margin: 0 0 14px;
+  font-family: var(--font-heading);
+  font-size: clamp(20px, 2.4vw, 26px);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.page--index .card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.page--index .cards-grid--steps .card {
+  min-height: 285px;
+  background:
+    radial-gradient(
+      circle at 100% 100%,
+      color-mix(in srgb, var(--color-accent) 10%, transparent) 0%,
+      transparent 38%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-card) 90%, transparent),
+      color-mix(in srgb, var(--color-brand-subtle) 58%, transparent)
+    );
+}
+
+.page--index .cards-grid--steps .card h2 {
+  max-width: 92%;
+  font-size: clamp(24px, 2.8vw, 32px);
+}
+
+.page--index .cards-grid--steps .card p {
+  max-width: 92%;
+}
+
+.page--index .district-gallery {
+  margin-top: 34px;
+  padding: var(--section-padding-lg);
+}
+
+.page--index .district-gallery__header {
+  margin-bottom: 24px;
+}
+
+.page--index .district-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.page--index .district-gallery__item {
+  width: 100%;
+  max-width: 320px;
+  min-width: 0;
+  margin: 0;
+}
+
+.page--index .district-gallery__image {
+  aspect-ratio: 3 / 4;
+}
+
+.page--index .district-gallery__item .captioned-photo__media {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000000 12%, transparent);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.page--index .district-gallery__item .captioned-photo__media:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 18px 40px color-mix(in srgb, #000000 18%, transparent);
+}
+
+.page--index .local-problems h1 {
+  font-size: clamp(10px, 5.2vw, 58px);
+}
+
+.page--index .index-hero__header h2 {
+  font-size: clamp(10px, 5.2vw, 62px);
+}
+
+.page--index .index-section__header h2,
+.page--index .cell-info h2,
+.page--index .district-gallery h2 {
+  font-size: clamp(10px, 3.4vw, 40px);
+}
+
+.page--index .card h2 {
+  font-size: clamp(10px, 2.1vw, 23px);
+}
+
+.page--index .cell-info__aside h3 {
+  font-size: 17px;
+}
+
+/* =========================
+   Мобильная адаптация
+   ========================= */
+
+@media (max-width: 920px) {
+  .page--index .cell-info {
+    grid-template-columns: 1fr;
+  }
+
+  .page--index .card {
+    min-height: auto;
+  }
+
+  .page--index .cards-grid--steps .card {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .page--index .local-problems {
+    margin-bottom: 26px;
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--index .local-problems::after {
+    display: none;
+  }
+
+  .page--index .local-problems h1 {
+    font-size: clamp(34px, 12vw, 52px);
+  }
+
+  .page--index .index-hero {
+    margin-bottom: 32px;
+  }
+
+  .page--index .index-hero__header {
+    margin-bottom: 18px;
+  }
+
+  .page--index .index-hero__header h2 {
+    font-size: clamp(30px, 10vw, 50px);
+    line-height: 100%;
+  }
+
+  .page--index .index-hero__header p {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  .page--index .people-gallery__grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    gap: 14px;
+  }
+
+  .page--index .people-gallery__item,
+  .page--index .district-gallery__item {
+    max-width: none;
+  }
+
+  .page--index .captioned-photo__media {
+    border-radius: var(--radius-lg);
+  }
+
+  .page--index .captioned-photo__caption {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  .page--index .index-section {
+    margin-top: 34px;
+  }
+
+  .page--index .index-section--steps {
+    margin-bottom: 26px;
+    padding-top: 28px;
+  }
+
+  .page--index .index-section__header h2 {
+    font-size: clamp(28px, 10vw, 42px);
+  }
+
+  .page--index .index-section__header p:not(.eyebrow) {
+    font-size: 16px;
+  }
+
+  .page--index .cell-info__aside {
+    gap: 10px;
+  }
+
+  .page--index .cell-info__aside article {
+    padding: 16px;
+  }
+
+  .page--index .cell-info__content,
+  .page--index .district-gallery {
+    padding: 16px;
+  }
+
+  .page--index .cell-info__content,
+  .page--index .cell-info__aside article,
+  .page--index .district-gallery {
+    border-radius: var(--radius-lg);
+  }
+
+  .page--index .cell-info__content,
+  .page--index .district-gallery {
+    padding: 10px;
+  }
+
+  .page--index .card {
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--index .district-gallery__grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    gap: 14px;
+  }
+
+  .page--index .district-gallery__item .captioned-photo__media {
+    border-radius: var(--radius-md);
+  }
+
+  .page--index .local-problems h1,
+  .page--index .index-hero__header h2 {
+    font-size: clamp(30px, 10vw, 44px);
+  }
+
+  .page--index .index-section__header h2,
+  .page--index .cell-info h2,
+  .page--index .district-gallery h2 {
+    font-size: clamp(25px, 8vw, 36px);
+  }
+}

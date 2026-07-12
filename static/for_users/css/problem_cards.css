@@ -1,0 +1,489 @@
+/* =========================
+   Hero страниц со списками
+   ========================= */
+
+.page--problem-list .local-problems {
+  position: relative;
+  overflow: hidden;
+  max-width: none;
+  width: 100%;
+  margin-bottom: 34px;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(
+      circle at 12% 16%,
+      color-mix(in srgb, var(--color-accent) 18%, transparent) 0%,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 92% 8%,
+      color-mix(in srgb, var(--color-brand) 14%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-card) 94%, transparent),
+      color-mix(in srgb, var(--color-brand-subtle) 84%, transparent)
+    );
+  box-shadow: var(--shadow-soft);
+}
+
+.page--problem-list .local-problems::after {
+  content: "";
+  position: absolute;
+  right: -72px;
+  bottom: -92px;
+  width: 250px;
+  height: 250px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  pointer-events: none;
+}
+
+.page--problem-list .local-problems > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--problem-list .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0 0 14px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-brand-soft) 72%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.page--problem-list .local-problems h1 {
+  max-width: min(100%, 1120px);
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.page--problem-list .local-problems p:not(.eyebrow) {
+  max-width: 700px;
+  margin: 18px 0 0;
+  color: var(--color-text-muted);
+  font-size: 18px;
+}
+
+/* =========================
+   Карточки заявок
+   ========================= */
+
+.page--problem-list .problem-list {
+  display: grid;
+  gap: 22px;
+  max-width: none;
+  width: 100%;
+}
+
+.page--problem-list .problem-card {
+  position: relative;
+  overflow: hidden;
+  scroll-margin-top: 120px;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card) 96%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 58%, transparent)
+  );
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+/* Цветная полоска кодирует статус, но текстовый статус остаётся в HTML
+   для доступности и понятности без цвета. */
+.page--problem-list .problem-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(
+    180deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 34%, transparent)
+  );
+}
+
+.page--problem-list .problem-card--new::before {
+  background: linear-gradient(
+    180deg,
+    #8a9a9a,
+    color-mix(in srgb, #8a9a9a 30%, transparent)
+  );
+}
+
+.page--problem-list .problem-card--sent::before {
+  background: linear-gradient(
+    180deg,
+    #4b7bec,
+    color-mix(in srgb, #4b7bec 30%, transparent)
+  );
+}
+
+.page--problem-list .problem-card--in_progress::before {
+  background: linear-gradient(
+    180deg,
+    var(--color-accent),
+    color-mix(in srgb, var(--color-accent) 34%, transparent)
+  );
+}
+
+.page--problem-list .problem-card--resolved::before {
+  background: linear-gradient(
+    180deg,
+    #35a66f,
+    color-mix(in srgb, #35a66f 30%, transparent)
+  );
+}
+
+.page--problem-list .problem-card--rejected::before {
+  background: linear-gradient(
+    180deg,
+    #d94f45,
+    color-mix(in srgb, #d94f45 30%, transparent)
+  );
+}
+
+.page--problem-list .problem-card::after {
+  content: "";
+  position: absolute;
+  right: -86px;
+  top: -92px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  pointer-events: none;
+}
+
+.page--problem-list .problem-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-card-hover) 92%, transparent),
+    color-mix(in srgb, var(--color-brand-subtle) 68%, transparent)
+  );
+  box-shadow:
+    var(--shadow-soft),
+    0 18px 38px color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.page--problem-list .problem-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.page--problem-list .problem-card > form:first-child {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 2;
+}
+
+.page--problem-list .problem-card h2 {
+  max-width: min(100%, 720px);
+  margin: 0 0 18px;
+  padding-right: 92px;
+  font-family: var(--font-heading);
+  font-size: clamp(22px, 3vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.page--problem-list .problem-card > p {
+  max-width: 780px;
+  margin: 10px 0;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.page--problem-list .problem-card > p:last-child {
+  margin-bottom: 0;
+}
+
+.page--problem-list .problem-card strong {
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* :has() здесь используется только как прогрессивное оформление мета-полей;
+   сами данные остаются обычным текстом и не зависят от CSS. */
+.page--problem-list .problem-card p:has(strong) {
+  width: fit-content;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-page) 72%, transparent);
+}
+
+.page--problem-list .problem-card p:has(strong):has(+ p strong) {
+  margin-bottom: 8px;
+}
+
+.page--problem-list .problem-card--rejected p:has(strong) {
+  background: color-mix(in srgb, #d94f45 8%, var(--color-page));
+  border-color: color-mix(in srgb, #d94f45 24%, var(--color-border));
+}
+
+.page--problem-list .problem-card--resolved p:has(strong) {
+  background: color-mix(in srgb, #35a66f 8%, var(--color-page));
+  border-color: color-mix(in srgb, #35a66f 22%, var(--color-border));
+}
+
+.page--problem-list .problem-card--in_progress p:has(strong) {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-page));
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 22%,
+    var(--color-border)
+  );
+}
+
+.page--problem-list .problem-card--sent p:has(strong) {
+  background: color-mix(in srgb, #4b7bec 8%, var(--color-page));
+  border-color: color-mix(in srgb, #4b7bec 22%, var(--color-border));
+}
+
+/* Превью фото одинаковые по размеру; полный файл открывает lightbox. */
+.page--problem-list .problem-card img {
+  display: inline-block;
+  width: min(100%, 280px);
+  height: 190px;
+  margin: 16px 10px 0 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  background: var(--color-brand-subtle);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000000 12%, transparent);
+  vertical-align: top;
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
+}
+
+.page--problem-list .problem-card img:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 18px 40px color-mix(in srgb, #000000 18%, transparent);
+}
+
+/* =========================
+   Голосование и пагинация
+   ========================= */
+
+.page--problem-list .vote-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0 15px;
+  background: color-mix(in srgb, var(--color-page) 88%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 22px
+    color-mix(in srgb, var(--color-accent) 10%, transparent);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.page--problem-list .vote-button__count {
+  min-width: 1ch;
+  text-align: left;
+}
+
+.page--problem-list .vote-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  box-shadow: 0 16px 30px
+    color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.page--problem-list .vote-button:active {
+  transform: translateY(0);
+  background: var(--color-accent-active);
+  color: #ffffff;
+}
+
+.page--problem-list .vote-button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.page--problem-list .vote-button[aria-pressed="true"]:hover {
+  background: var(--color-accent-hover);
+}
+
+.page--problem-list .vote-button.is-pending,
+.page--problem-list .vote-button:disabled {
+  opacity: 0.82;
+}
+
+.page--problem-list .vote-button.is-pending {
+  cursor: pointer;
+}
+
+.page--problem-list .vote-button:disabled {
+  cursor: not-allowed;
+}
+
+.page--problem-list .problem-list > .card {
+  max-width: none;
+  width: 100%;
+  padding: var(--section-padding-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-card) 94%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.page--problem-list .problem-list > .card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 17px;
+}
+
+.page--problem-list .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.page--problem-list .pagination a,
+.page--problem-list .pagination span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0 15px;
+  background: color-mix(in srgb, var(--color-page) 82%, transparent);
+  color: var(--color-text-muted);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.page--problem-list .pagination a:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+/* =========================
+   Мобильная адаптация списков
+   ========================= */
+
+@media (max-width: 860px) {
+  .page--problem-list .local-problems {
+    padding: 10px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--problem-list .local-problems p:not(.eyebrow) {
+    font-size: 16px;
+  }
+
+  .page--problem-list .problem-list {
+    gap: 18px;
+  }
+
+  .page--problem-list .problem-card {
+    padding: 24px;
+    border-radius: var(--radius-lg);
+  }
+
+  .page--problem-list .problem-card > form:first-child {
+    position: static;
+    margin-bottom: 16px;
+  }
+
+  .page--problem-list .problem-card h2 {
+    padding-right: 0;
+  }
+
+  .page--problem-list .vote-button {
+    width: fit-content;
+  }
+
+  .page--problem-list .problem-card img {
+    width: min(100%, 240px);
+    height: 170px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page--problem-list .local-problems {
+    padding: 10px;
+  }
+
+  .page--problem-list .problem-card {
+    padding: 21px;
+  }
+
+  .page--problem-list .problem-card h2 {
+    font-size: 24px;
+  }
+
+  .page--problem-list .problem-card p:has(strong) {
+    width: 100%;
+  }
+
+  .page--problem-list .problem-card img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    margin-right: 0;
+  }
+
+  .page--problem-list .vote-button {
+    width: 100%;
+  }
+}

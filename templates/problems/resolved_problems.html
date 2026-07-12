@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Решённые проблемы{% endblock %}
+
+{% block page_class %}page--problem-list{% endblock %}
+
+{% block content %}
+  {# Решённые заявки показываются только после явной публикации модератором. #}
+  <section class="local-problems">
+    <h1>Решённые проблемы</h1>
+
+    <p>
+      Здесь показываются решённые проблемы
+    </p>
+  </section>
+
+  <section class="problem-list" data-lightbox-gallery="resolved-problems">
+    {% if problems %}
+      {% for problem in problems %}
+        <article class="problem-card problem-card--{{ problem.status }}">
+          <h2>{{ problem.title }}</h2>
+
+          <p><strong>Категория:</strong> {{ problem.get_category_display }}</p>
+
+          {% if problem.address %}
+            <p><strong>Местоположение:</strong> {{ problem.address }}</p>
+          {% endif %}
+
+          <p><strong>Описание:</strong> {{ problem.description }}</p>
+          <p><strong>Дата:</strong> {{ problem.created_at }}</p>
+
+          {% for photo in problem.photos.all %}
+            <img
+              src="{{ photo.image.url }}"
+              alt="Фото обращения"
+              width="280"
+              height="190"
+              loading="lazy"
+              decoding="async"
+              data-lightbox-image>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    {% else %}
+      <article class="card">
+        <p>Пока нет опубликованных решённых проблем.</p>
+      </article>
+    {% endif %}
+  </section>
+
+  {% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Пагинация">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">Назад</a>
+      {% endif %}
+
+      <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">Вперёд</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

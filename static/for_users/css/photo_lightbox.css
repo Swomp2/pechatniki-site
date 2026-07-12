@@ -1,0 +1,181 @@
+/* =========================
+   Lightbox: слои и блокировка прокрутки
+   ========================= */
+
+.page--problem-list .problem-card img {
+  cursor: zoom-in;
+}
+
+html.photo-lightbox-lock {
+  overscroll-behavior: none;
+}
+
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-lightbox);
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100svh;
+  background: color-mix(in srgb, #000000 18%, transparent);
+  opacity: 0;
+  cursor: zoom-out;
+  backdrop-filter: blur(8px) saturate(0.9);
+  touch-action: none;
+}
+
+/* Изображение позиционируется JS-ом через top/left/width/height:
+   так получается анимация раскрытия из исходной карточки. */
+.photo-lightbox__image {
+  position: fixed;
+  z-index: calc(var(--z-lightbox) + 1);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, #ffffff 16%, transparent);
+  background: var(--color-brand-subtle);
+  box-shadow:
+    0 28px 90px color-mix(in srgb, #000000 48%, transparent),
+    0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
+  object-fit: contain;
+  cursor: default;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: top, left, width, height, border-radius, opacity, transform;
+}
+
+/* Кнопки выше изображения и затемнения, чтобы оставаться кликабельными
+   во время анимаций и переключения фотографий. */
+.photo-lightbox__close,
+.photo-lightbox__nav {
+  position: fixed;
+  z-index: var(--z-lightbox-controls);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+  background: color-mix(in srgb, #111111 46%, transparent);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.photo-lightbox__close {
+  top: max(16px, calc(env(safe-area-inset-top) + 16px));
+  right: max(16px, calc(env(safe-area-inset-right) + 16px));
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.photo-lightbox__nav {
+  top: 50%;
+  width: 54px;
+  height: 72px;
+  border-radius: var(--radius-pill);
+  font-size: 38px;
+  font-weight: 500;
+  transform: translateY(-50%);
+}
+
+.photo-lightbox__nav--prev {
+  left: max(16px, calc(env(safe-area-inset-left) + 16px));
+}
+
+.photo-lightbox__nav--next {
+  right: max(16px, calc(env(safe-area-inset-right) + 16px));
+}
+
+.photo-lightbox__close:hover,
+.photo-lightbox__nav:hover {
+  border-color: color-mix(in srgb, #ffffff 34%, transparent);
+  background: color-mix(in srgb, #111111 64%, transparent);
+}
+
+.photo-lightbox__close:hover {
+  transform: scale(1.04);
+}
+
+.photo-lightbox__nav:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+
+.photo-lightbox__close:active {
+  transform: scale(0.98);
+}
+
+.photo-lightbox__nav:active {
+  transform: translateY(-50%) scale(0.98);
+}
+
+.photo-lightbox__close:focus-visible,
+.photo-lightbox__nav:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 46%, transparent);
+  outline-offset: 3px;
+}
+
+.photo-lightbox__nav[hidden] {
+  display: none;
+}
+
+.photo-lightbox__counter {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 16px));
+  z-index: var(--z-lightbox-controls);
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, #ffffff 16%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, #111111 46%, transparent);
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  backdrop-filter: blur(10px);
+}
+
+/* =========================
+   Адаптация lightbox
+   ========================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-lightbox,
+  .photo-lightbox__image {
+    transition: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .photo-lightbox__nav {
+    width: 44px;
+    height: 58px;
+    font-size: 30px;
+  }
+
+  .photo-lightbox__nav--prev {
+    left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  }
+
+  .photo-lightbox__nav--next {
+    right: max(12px, calc(env(safe-area-inset-right) + 12px));
+  }
+}
+
+@media (max-width: 560px) {
+  .photo-lightbox__close {
+    width: 42px;
+    height: 42px;
+  }
+}

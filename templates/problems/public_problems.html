@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Актуальные проблемы{% endblock %}
+
+{% block page_class %}page--problem-list{% endblock %}
+
+{% block content %}
+  {# Список актуальных заявок: view уже отфильтровал только публичные рабочие статусы. #}
+  <section class="local-problems">
+    <h1>Актуальные проблемы</h1>
+
+    <p>
+      Здесь отображаются проблемы, которые мы увидели и над которыми активно работаем.
+      Вы можете нажать плюсик на проблему, которая для вас тоже важна
+    </p>
+  </section>
+
+  <section class="problem-list" data-lightbox-gallery="public-problems">
+    {% if problems %}
+      {% for problem in problems %}
+        <article
+          class="problem-card problem-card--{{ problem.status }}"
+          id="problem-{{ problem.id }}">
+          <form
+            class="problem-vote-form"
+            method="post"
+            action="{% url 'upvote_problem' problem.id %}"
+            data-problem-vote-form
+            data-problem-id="{{ problem.id }}">
+            {% csrf_token %}
+
+            <button
+              class="vote-button"
+              type="submit"
+              data-vote-button
+              aria-label="Изменить важность проблемы: {{ problem.title }}"
+              aria-pressed="{% if problem.id in voted_problem_ids %}true{% else %}false{% endif %}">
+              <span class="vote-button__plus" aria-hidden="true">+</span>
+              <span class="vote-button__count" data-vote-count aria-live="polite">
+                {{ problem.votes_count }}
+              </span>
+            </button>
+          </form>
+
+          <h2>{{ problem.title }}</h2>
+
+          <p><strong>Статус:</strong> {{ problem.get_status_display }}</p>
+          <p><strong>Категория:</strong> {{ problem.get_category_display }}</p>
+
+          {% if problem.address %}
+            <p><strong>Местоположение:</strong> {{ problem.address }}</p>
+          {% endif %}
+
+          <p><strong>Описание:</strong> {{ problem.description }}</p>
+
+          {% for photo in problem.photos.all %}
+            <img
+              src="{{ photo.image.url }}"
+              alt="Фото проблемы"
+              width="280"
+              height="190"
+              loading="lazy"
+              decoding="async"
+              data-lightbox-image>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    {% else %}
+      <article class="card">
+        <p>Пока нет опубликованных актуальных проблем.</p>
+      </article>
+    {% endif %}
+  </section>
+
+  {% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Пагинация">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">Назад</a>
+      {% endif %}
+
+      <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">Вперёд</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

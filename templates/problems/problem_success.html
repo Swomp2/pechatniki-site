@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Обращение отправлено{% endblock %}
+
+{% block page_class %}page--success{% endblock %}
+
+{% block content %}
+  <section class="success-hero">
+    <div class="success-mark" aria-hidden="true">✓</div>
+
+    <h1>Обращение отправлено</h1>
+
+    <p>
+      Спасибо! Ваще обращение будет рассмотрено в ближайшее время
+    </p>
+  </section>
+
+  <section class="success-card">
+    <h2>Что дальше</h2>
+
+    <p>
+      После проверки ваше обращение появится в списке актуальных проблем. Далее, оно попадёт в решённые.
+      Также мы можем отклонить обращение, но обязательно объясним почему
+    </p>
+
+    <div class="success-steps">
+      <article>
+        <span>1</span>
+        <h3>Проверка и публикация</h3>
+        <p>
+          Мы рассмотрим ваше обращение. Если вы оставите контактные данные, мы уточним актуальность проблемы.
+          Она также будет опубликована на сайте
+        </p>
+      </article>
+
+      <article>
+        <span>2</span>
+        <h3>Решение</h3>
+        <p>Мы будем добиваться решения вашей проблемы всеми доступными нам способами</p>
+      </article>
+
+      <article>
+        <span>3</span>
+        <h3>Отчёт</h3>
+        <p>
+          Само собой вы узнаете о решении. Если вы оставили контактные данные, мы сообщим лично.
+          Если нет, то вы увидите в нашем ТГ канале или прямо здесь, на сайте;)
+        </p>
+      </article>
+    </div>
+
+    <div class="hero-actions">
+      <a class="button button-primary" href="{% url 'create_problem' %}">
+        Отправить ещё одно обращение
+      </a>
+
+      <a class="button button-secondary" href="{% url 'public_problems' %}">
+        Смотреть актуальные проблемы
+      </a>
+    </div>
+  </section>
+{% endblock %}

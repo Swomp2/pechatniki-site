@@ -1,0 +1,49 @@
+# Сгенерированные питоном файлы
+__pycache__/
+*.py[oc]
+.python-version
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Виртуальные окружения
+.venv
+
+# Локальное окружение и секреты
+.env
+.env.*
+!.env.example
+
+# Локальные данные
+db.sqlite3
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-wal
+*.db-shm
+*.log
+media/
+staticfiles/
+backups/
+secrets/
+*.tar.age
+
+# Локальные бэкапы и временные копии
+*.bak
+*.backup
+*.old
+*.orig

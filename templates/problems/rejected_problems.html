@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Отклонённые заявки{% endblock %}
+
+{% block page_class %}page--problem-list{% endblock %}
+
+{% block content %}
+  {# Отклонённые заявки публичны только если модератор включил is_public. #}
+  <section class="local-problems">
+    <h1>Отклонённые заявки</h1>
+
+    <p>
+      Здесь отображаются отклонённые заявки. Каждая такая заявка обязательно имеет
+      объяснение почему она отклонена
+    </p>
+  </section>
+
+  <section class="problem-list" data-lightbox-gallery="rejected-problems">
+    {% if problems %}
+      {% for problem in problems %}
+        <article class="problem-card problem-card--{{ problem.status }}">
+          <h2>{{ problem.title }}</h2>
+
+          <p><strong>Категория:</strong> {{ problem.get_category_display }}</p>
+
+          {% if problem.address %}
+            <p><strong>Адрес:</strong> {{ problem.address }}</p>
+          {% endif %}
+
+          <p><strong>Описание заявки:</strong> {{ problem.description }}</p>
+
+          <p>
+            <strong>Причина отклонения:</strong>
+            {{ problem.rejection_reason }}
+          </p>
+
+          <p><strong>Дата подачи:</strong> {{ problem.created_at }}</p>
+
+          {% for photo in problem.photos.all %}
+            <img
+              src="{{ photo.image.url }}"
+              alt="Фото заявки"
+              width="280"
+              height="190"
+              loading="lazy"
+              decoding="async"
+              data-lightbox-image>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    {% else %}
+      <article class="card">
+        <p>Пока нет отклонённых заявок.</p>
+      </article>
+    {% endif %}
+  </section>
+
+  {% if page_obj.has_other_pages %}
+    <nav class="pagination" aria-label="Пагинация">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}">Назад</a>
+      {% endif %}
+
+      <span>Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">Вперёд</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,190 @@
+{% load static %}
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Новые люди - Печатники{% endblock %}</title>
+    <link rel="icon" href="{% static 'favicon/heart.ico' %}" sizes="any" />
+
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("site-theme");
+
+        if (savedTheme === "light" || savedTheme === "dark") {
+          document.documentElement.dataset.theme = savedTheme;
+        }
+      } catch (error) {
+        // Если localStorage недоступен, CSS возьмёт системную тему.
+      }
+    </script>
+
+    <link rel="stylesheet" href="{% static 'for_users/css/main.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/page_transitions.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/create_problem.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/problem_cards.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/index.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/success.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/photo_lightbox.css' %}" />
+    <link rel="stylesheet" href="{% static 'for_users/css/main_page.css' %}" />
+
+    <script defer src="{% static 'for_users/js/main.js' %}"></script>
+    <script defer src="{% static 'for_users/js/page_transitions.js' %}"></script>
+    <script defer src="{% static 'for_users/js/problem_votes.js' %}"></script>
+    <script defer src="{% static 'for_users/js/photo_lightbox.js' %}"></script>
+    <script defer src="{% static 'for_users/js/problem_form.js' %}"></script>
+  </head>
+
+  <body>
+	    {# Шапка живёт вне <main>, поэтому page transitions не пересоздают её при переходах. #}
+	    <header class="site-header">
+      <div class="container header-inner">
+        <div class="logo-menu" data-logo-menu>
+          <a
+            class="logo"
+            href="{% url 'index' %}"
+            data-logo-menu-trigger
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <span class="logo-mark logo-mark--crest" aria-hidden="true">
+              <img
+                src="{% static 'for_users/img/logos/pechatniki.png' %}"
+                alt=""
+              />
+            </span>
+
+            <span class="logo-text">Новые Люди - Печатники</span>
+          </a>
+
+	          {# Dropdown содержит внешние контакты ячейки и открывается hover/focus или первым тапом на мобильных. #}
+	          <div class="logo-dropdown" data-logo-menu-dropdown>
+            <a
+              class="logo-dropdown__item"
+              href="https://t.me/velizarovNL"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="logo-dropdown__mark logo-dropdown__mark--telegram" aria-hidden="true">
+                <img
+                  src="{% static 'for_users/img/logos/telegram.svg' %}"
+                  alt=""
+                />
+              </span>
+
+              <span class="logo-dropdown__text">
+                <strong>Telegram Дениса</strong>
+                <small>Он координатор нашей ячейки;)</small>
+              </span>
+            </a>
+
+            <a
+              class="logo-dropdown__item"
+              href="https://t.me/Swomp226"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="logo-dropdown__mark logo-dropdown__mark--telegram" aria-hidden="true">
+                <img
+                  src="{% static 'for_users/img/logos/telegram.svg' %}"
+                  alt=""
+                />
+              </span>
+
+              <span class="logo-dropdown__text">
+                <strong>Telegram Святослава</strong>
+                <small>Неравнодушный житель Печатников</small>
+              </span>
+            </a>
+
+            <a
+              class="logo-dropdown__item"
+              href="https://t.me/pechatnikiNP"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="logo-dropdown__mark logo-dropdown__mark--telegram" aria-hidden="true">
+                <img
+                  src="{% static 'for_users/img/logos/telegram.svg' %}"
+                  alt=""
+                />
+              </span>
+
+              <span class="logo-dropdown__text">
+                <strong>Наш районный ТГК</strong>
+                <small>Новости ячейки, анонсы событий</small>
+              </span>
+            </a>
+
+            <a
+              class="logo-dropdown__item"
+              href="https://github.com/Swomp2/pechatniki-site"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span
+                class="logo-dropdown__mark logo-dropdown__mark--github"
+                aria-hidden="true"
+              ></span>
+
+              <span class="logo-dropdown__text">
+                <strong>GitHub</strong>
+                <small>Код сайта</small>
+              </span>
+            </a>
+          </div>
+        </div>
+
+        <nav class="site-nav" aria-label="Основная навигация">
+          <a href="{% url 'create_problem' %}">Сообщить о проблеме</a>
+          <a href="{% url 'public_problems' %}">Актуальные проблемы</a>
+          <a href="{% url 'resolved_problems' %}">Решённые проблемы</a>
+          <a href="{% url 'rejected_problems' %}">Отклонённые заявки</a>
+        </nav>
+
+        <button class="theme-toggle" type="button" data-theme-toggle>
+          <span class="theme-toggle__icon" data-theme-toggle-icon aria-hidden="true">
+            ☼
+          </span>
+          <span class="theme-toggle__text" data-theme-toggle-text>
+            Светлая
+          </span>
+        </button>
+      </div>
+    </header>
+
+    <main class="container page {% block page_class %}{% endblock %}">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <div class="container site-footer__inner">
+        <a
+          class="site-footer__party-link"
+          href="https://newpeople.ru/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Перейти на сайт партии Новые люди"
+        >
+          <img
+            class="site-footer__party-logo site-footer__party-logo--light"
+            src="{% static 'for_users/img/logos/newpeople_black.svg' %}"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+          />
+          <img
+            class="site-footer__party-logo site-footer__party-logo--dark"
+            src="{% static 'for_users/img/logos/newpeople_white.svg' %}"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+      </div>
+    </footer>
+  </body>
+</html>

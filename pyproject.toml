@@ -1,0 +1,12 @@
+[project]
+name = "np-pechatniki"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=43.0.0",
+    "django>=6.0.6",
+    "gunicorn>=26.0.0",
+    "pillow>=12.3.0",
+]
