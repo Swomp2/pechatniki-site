@@ -84,6 +84,16 @@ def wants_json_response(request):
     }
 
 
+def wants_page_transition_response(request):
+    accept_header = request.headers.get("accept", "")
+    requested_with = request.headers.get("x-requested-with", "")
+
+    return "text/html" in accept_header and requested_with in {
+        "fetch",
+        "XMLHttpRequest",
+    }
+
+
 def redirect_to_problem(problem_id):
     return redirect(f"{reverse('public_problems')}#problem-{problem_id}")
 
@@ -159,7 +169,42 @@ def create_problem(request):
                         original_name=evidence_file.name,
                     )
 
+            success_url = reverse("problem_success")
+
+            if wants_page_transition_response(request):
+                response = render(
+                    request,
+                    "problems/problem_success.html",
+                    status=201,
+                )
+                response["X-Redirect-URL"] = success_url
+
+                return response
+
+            if wants_json_response(request):
+                return JsonResponse(
+                    {"redirect_url": success_url},
+                    status=201,
+                )
+
             return redirect("problem_success")
+
+        if wants_page_transition_response(request):
+            response = render(
+                request,
+                "problems/create_problem.html",
+                {"form": form},
+                status=400,
+            )
+            response["X-Redirect-URL"] = request.get_full_path()
+
+            return response
+
+        if wants_json_response(request):
+            return JsonResponse(
+                {"errors": form.errors.get_json_data()},
+                status=400,
+            )
     else:
         form = ProblemForm()
 

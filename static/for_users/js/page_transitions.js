@@ -30,6 +30,42 @@ function setupPageTransitions() {
   document.addEventListener("focusin", handlePossiblePrefetch, true);
   document.addEventListener("click", handlePageTransitionClick);
 
+  window.sitePageTransitions = {
+    clearCache() {
+      pageCache.clear();
+    },
+    navigate(url, options = {}) {
+      if (isNavigating) {
+        return Promise.resolve(false);
+      }
+
+      return navigateToPage(url, {
+        shouldPushState: options.shouldPushState !== false,
+        shouldAnimate:
+          typeof options.shouldAnimate === "boolean"
+            ? options.shouldAnimate
+            : !motionQuery.matches,
+      }).then(function () {
+        return true;
+      });
+    },
+    replaceWithHtml(htmlText, url, options = {}) {
+      if (isNavigating) {
+        return Promise.resolve(false);
+      }
+
+      return transitionToHtml(htmlText, url, {
+        shouldPushState: options.shouldPushState !== false,
+        shouldAnimate:
+          typeof options.shouldAnimate === "boolean"
+            ? options.shouldAnimate
+            : !motionQuery.matches,
+      }).then(function () {
+        return true;
+      });
+    },
+  };
+
   window.addEventListener("popstate", function () {
     navigateToPage(window.location.href, {
       shouldPushState: false,
@@ -76,6 +112,18 @@ function setupPageTransitions() {
   }
 
   async function navigateToPage(url, options) {
+    return transitionToPage(url, options, function () {
+      return fetchPage(url);
+    });
+  }
+
+  async function transitionToHtml(htmlText, url, options) {
+    return transitionToPage(url, options, function () {
+      return Promise.resolve(parseHtmlDocument(htmlText));
+    });
+  }
+
+  async function transitionToPage(url, options, loadNextDocument) {
     const currentPage = document.querySelector("main.page");
     let backgroundTransition = null;
 
@@ -93,7 +141,7 @@ function setupPageTransitions() {
     body.style.minHeight = `${lockedHeight}px`;
 
     try {
-      const nextDocument = await fetchPage(url);
+      const nextDocument = await loadNextDocument();
       const nextPage = nextDocument.querySelector("main.page");
       const nextTitle = nextDocument.querySelector("title");
 
@@ -175,11 +223,15 @@ function setupPageTransitions() {
     }
 
     const htmlText = await response.text();
-    const nextDocument = new DOMParser().parseFromString(htmlText, "text/html");
+    const nextDocument = parseHtmlDocument(htmlText);
 
     pageCache.set(url, nextDocument);
 
     return nextDocument.cloneNode(true);
+  }
+
+  function parseHtmlDocument(htmlText) {
+    return new DOMParser().parseFromString(htmlText, "text/html");
   }
 
   async function animatePageOut(page) {

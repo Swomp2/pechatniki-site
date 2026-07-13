@@ -458,6 +458,42 @@ class PublicPageRenderTests(TestCase):
 
         self.assertRedirects(response, reverse("problem_success"))
 
+    @override_settings(PROBLEM_FORM_MIN_SUBMIT_SECONDS=0)
+    def test_ajax_form_post_returns_success_redirect_url(self):
+        phone = "+79991234567"
+        response = self.client.post(
+            reverse("create_problem"),
+            make_form_data(title="AJAX POST", contact_phone=phone),
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            response.json(),
+            {"redirect_url": reverse("problem_success")},
+        )
+        self.assertTrue(Problem.objects.filter(title="AJAX POST").exists())
+        self.assertNotIn(phone, response.content.decode())
+
+    @override_settings(PROBLEM_FORM_MIN_SUBMIT_SECONDS=0)
+    def test_page_transition_form_post_returns_success_html(self):
+        phone = "+79991234567"
+        response = self.client.post(
+            reverse("create_problem"),
+            make_form_data(title="HTML transition POST", contact_phone=phone),
+            HTTP_ACCEPT="text/html",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response["X-Redirect-URL"], reverse("problem_success"))
+        self.assertContains(response, "Обращение отправлено", status_code=201)
+        self.assertTrue(
+            Problem.objects.filter(title="HTML transition POST").exists()
+        )
+        self.assertNotIn(phone, response.content.decode())
+
     def test_phone_is_not_rendered_on_public_pages(self):
         phone = "+79991234567"
         make_problem(
