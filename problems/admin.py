@@ -2,6 +2,8 @@
 
 from django.contrib import admin, messages  # Встроенная система админки
 from django.db.models import Q
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .admin_config import (
     PROBLEM_FIELDSETS,
@@ -13,9 +15,17 @@ from .admin_config import (
     configure_admin_site,
 )
 from .models import (  # Модели из файла config/models.py
+    AttachmentAccessAudit,
     Problem,
     ProblemEvidenceFile,
     ProblemPhoto,
+)
+from .protected_media import (
+    can_admin_download_evidence,
+    can_admin_download_photo,
+    can_admin_view_evidence,
+    can_admin_view_photo,
+    make_attachment_token,
 )
 
 configure_admin_site()
@@ -23,28 +33,98 @@ configure_admin_site()
 CONTACT_PHONE_PERMISSION = "problems.view_problem_contact_phone"
 
 
+def build_attachment_admin_links(request, obj, can_view, can_download):
+    if not request:
+        return "Недоступно"
+
+    links = []
+
+    if can_view(request.user):
+        view_token = make_attachment_token(request, obj, "view")
+        view_url = reverse(
+            "attachment_access",
+            args=[obj.public_id, "view", view_token],
+        )
+        links.append(
+            format_html(
+                '<a href="{}" target="_blank" rel="noopener noreferrer">Открыть</a>',
+                view_url,
+            )
+        )
+
+    if can_download(request.user):
+        download_token = make_attachment_token(request, obj, "download")
+        download_url = reverse(
+            "attachment_access",
+            args=[obj.public_id, "download", download_token],
+        )
+        links.append(format_html('<a href="{}">Скачать</a>', download_url))
+
+    if not links:
+        return "Недостаточно прав"
+
+    return format_html(" · ".join("{}" for _ in links), *links)
+
+
 # Фото и файлы со старыми заявками доступны прямо в карточке обращения, чтобы модератор
 # не ходил по отдельным разделам при проверке заявки.
 class ProblemPhotoInline(admin.TabularInline):
     model = ProblemPhoto
     extra = 0
+    fields = (
+        "attachment_links",
+        "uploaded_at",
+    )
+    readonly_fields = (
+        "attachment_links",
+        "uploaded_at",
+    )
     show_change_link = True
+
+    def get_formset(self, request, obj=None, **kwargs):
+        self.request = request
+
+        return super().get_formset(request, obj, **kwargs)
+
+    @admin.display(description="Вложение")
+    def attachment_links(self, obj):
+        return build_attachment_admin_links(
+            getattr(self, "request", None),
+            obj,
+            can_admin_view_photo,
+            can_admin_download_photo,
+        )
 
 
 class ProblemEvidenceFileInline(admin.TabularInline):
     model = ProblemEvidenceFile
     extra = 0
     fields = (
-        "file",
+        "attachment_links",
         "original_name",
         "uploaded_at",
     )
 
     readonly_fields = (
+        "attachment_links",
         "original_name",
         "uploaded_at",
     )
     show_change_link = True
+
+    def get_formset(self, request, obj=None, **kwargs):
+        self.request = request
+
+        return super().get_formset(request, obj, **kwargs)
+
+    @admin.display(description="Вложение")
+    def attachment_links(self, obj):
+        return build_attachment_admin_links(
+            getattr(self, "request", None),
+            obj,
+            can_admin_view_evidence,
+            can_admin_download_evidence,
+        )
 
 
 # То, как проблемы будут отображаться в админке
@@ -154,6 +234,22 @@ class ProblemAdmin(ProblemAdminBadgesMixin, admin.ModelAdmin):
 class ProblemPhotoAdmin(admin.ModelAdmin):
     list_display = (
         "problem",
+        "attachment_links",
+        "uploaded_at",
+    )
+    fields = (
+        "problem",
+        "attachment_links",
+        "public_id",
+        "content_type",
+        "file_size",
+        "uploaded_at",
+    )
+    readonly_fields = (
+        "attachment_links",
+        "public_id",
+        "content_type",
+        "file_size",
         "uploaded_at",
     )
 
@@ -164,12 +260,36 @@ class ProblemPhotoAdmin(admin.ModelAdmin):
 
     list_filter = ("uploaded_at",)
 
+    def get_queryset(self, request):
+        self.request = request
+
+        return super().get_queryset(request)
+
+    @admin.display(description="Вложение")
+    def attachment_links(self, obj):
+        return build_attachment_admin_links(
+            getattr(self, "request", None),
+            obj,
+            can_admin_view_photo,
+            can_admin_download_photo,
+        )
+
 
 @admin.register(ProblemEvidenceFile)
 class ProblemEvidenceFileAdmin(admin.ModelAdmin):
     list_display = (
         "problem",
         "original_name",
+        "attachment_links",
+        "uploaded_at",
+    )
+    fields = (
+        "problem",
+        "original_name",
+        "attachment_links",
+        "public_id",
+        "content_type",
+        "file_size",
         "uploaded_at",
     )
 
@@ -183,5 +303,65 @@ class ProblemEvidenceFileAdmin(admin.ModelAdmin):
 
     readonly_fields = (
         "original_name",
+        "attachment_links",
+        "public_id",
+        "content_type",
+        "file_size",
         "uploaded_at",
     )
+
+    def get_queryset(self, request):
+        self.request = request
+
+        return super().get_queryset(request)
+
+    @admin.display(description="Вложение")
+    def attachment_links(self, obj):
+        return build_attachment_admin_links(
+            getattr(self, "request", None),
+            obj,
+            can_admin_view_evidence,
+            can_admin_download_evidence,
+        )
+
+
+@admin.register(AttachmentAccessAudit)
+class AttachmentAccessAuditAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "user",
+        "attachment_type",
+        "attachment_public_id",
+        "problem_id",
+        "action",
+        "success",
+    )
+    list_filter = (
+        "attachment_type",
+        "action",
+        "success",
+        "created_at",
+    )
+    search_fields = (
+        "attachment_public_id",
+        "problem_id",
+        "user__username",
+    )
+    readonly_fields = (
+        "created_at",
+        "user",
+        "attachment_type",
+        "attachment_public_id",
+        "problem_id",
+        "action",
+        "success",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -8,7 +8,6 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils.text import get_valid_filename
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
@@ -25,12 +24,17 @@ IMAGE_CONTENT_TYPE_BY_FORMAT = {
 
 
 def build_safe_upload_name(original_name, extension):
-    safe_stem = get_valid_filename(Path(original_name).stem)[:80].strip("._-")
+    # Физическое имя не должно раскрывать исходное имя файла, ФИО или телефон.
+    # Читаемое имя, если оно нужно администратору, хранится отдельным полем.
+    normalized_extension = extension.lower()
+    safe_extension = (
+        normalized_extension
+        if normalized_extension.startswith(".")
+        and normalized_extension[1:].replace(".", "").isalnum()
+        else ""
+    )
 
-    if not safe_stem:
-        safe_stem = "file"
-
-    return f"{safe_stem}-{uuid.uuid4().hex}{extension}"
+    return f"{uuid.uuid4().hex}{safe_extension}"
 
 
 def get_allowed_image_formats():

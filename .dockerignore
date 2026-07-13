@@ -26,6 +26,9 @@ Thumbs.db
 # Локальное окружение и секреты
 .env
 .env.*
+secrets/
+*.key
+*.pem
 
 # Локальные данные
 db.sqlite3

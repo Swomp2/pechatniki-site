@@ -232,6 +232,7 @@ class ProblemForm(forms.ModelForm):
         sanitized_evidence_files = []
 
         for uploaded_file in evidence_files:
+            original_client_name = Path(uploaded_file.name).name[:255]
             extension = get_file_extension(uploaded_file)
 
             if extension not in EVIDENCE_EXTENSIONS:
@@ -252,11 +253,15 @@ class ProblemForm(forms.ModelForm):
             if extension == ".pdf":
                 validate_pdf(uploaded_file)
                 uploaded_file.name = build_safe_upload_name(uploaded_file.name, ".pdf")
+                uploaded_file.original_client_name = original_client_name
                 sanitized_evidence_files.append(uploaded_file)
             else:
-                sanitized_evidence_files.append(
-                    validate_uploaded_image(uploaded_file, PHOTO_EXTENSIONS)
+                sanitized_file = validate_uploaded_image(
+                    uploaded_file,
+                    PHOTO_EXTENSIONS,
                 )
+                sanitized_file.original_client_name = original_client_name
+                sanitized_evidence_files.append(sanitized_file)
 
         return sanitized_evidence_files
 

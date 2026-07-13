@@ -3,14 +3,16 @@ import tempfile
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote
+from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory
 from django.test import TestCase, override_settings
@@ -20,7 +22,14 @@ from PIL import Image
 
 from .forms import ProblemForm, make_form_started_at_token
 from .admin import ProblemAdmin
-from .models import Problem, ProblemEvidenceFile, ProblemPhoto, ProblemVote
+from .models import (
+    AttachmentAccessAudit,
+    Problem,
+    ProblemEvidenceFile,
+    ProblemPhoto,
+    ProblemVote,
+)
+from .protected_media import ATTACHMENT_TOKEN_MAX_AGE, make_attachment_token
 
 TEST_FIELD_ENCRYPTION_KEYS = [
     "test-key-1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -252,6 +261,7 @@ class ProblemVisibilityAndVotingTests(TestCase):
         self.assertEqual(payload["min_interval_ms"], 0)
         self.assertEqual(payload["retry_after_ms"], 0)
         self.assertEqual(problem.votes_count, 1)
+        self.assertIn(settings.PROBLEM_VOTER_COOKIE_NAME, response.cookies)
 
         response = self.client.post(
             url,
@@ -269,6 +279,87 @@ class ProblemVisibilityAndVotingTests(TestCase):
         self.assertEqual(payload["min_interval_ms"], 0)
         self.assertEqual(payload["retry_after_ms"], 0)
         self.assertEqual(problem.votes_count, 0)
+
+    def test_vote_persists_with_same_voter_cookie_in_new_client(self):
+        problem = make_problem(Problem.Status.SENT)
+        url = reverse("upvote_problem", args=[problem.id])
+
+        response = self.client.post(
+            url,
+            {"desired_voted": "1"},
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        voter_cookie = response.cookies[settings.PROBLEM_VOTER_COOKIE_NAME].value
+        vote = ProblemVote.objects.get(problem=problem)
+
+        self.assertEqual(len(vote.voter_hash), 64)
+        self.assertNotEqual(vote.voter_hash, voter_cookie)
+
+        new_client = self.client_class()
+        new_client.cookies[settings.PROBLEM_VOTER_COOKIE_NAME] = voter_cookie
+        response = new_client.post(
+            url,
+            {"desired_voted": "1"},
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        problem.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["operation"], "unchanged")
+        self.assertEqual(problem.votes_count, 1)
+        self.assertEqual(ProblemVote.objects.filter(problem=problem).count(), 1)
+
+        response = new_client.post(
+            url,
+            {"desired_voted": "0"},
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        problem.refresh_from_db()
+
+        self.assertEqual(response.json()["operation"], "removed")
+        self.assertEqual(problem.votes_count, 0)
+
+    def test_vote_cookie_deletion_creates_new_voter_identity(self):
+        problem = make_problem(Problem.Status.SENT)
+        url = reverse("upvote_problem", args=[problem.id])
+
+        self.client.post(
+            url,
+            {"desired_voted": "1"},
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        new_client = self.client_class()
+        new_client.post(
+            url,
+            {"desired_voted": "1"},
+            HTTP_ACCEPT="application/json",
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+        problem.refresh_from_db()
+
+        self.assertEqual(problem.votes_count, 2)
+        self.assertEqual(ProblemVote.objects.filter(problem=problem).count(), 2)
+
+    def test_problem_vote_unique_voter_hash_constraint(self):
+        problem = make_problem(Problem.Status.SENT)
+        voter_hash = "a" * 64
+        ProblemVote.objects.create(
+            problem=problem,
+            voter_hash=voter_hash,
+            session_key="session-one",
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ProblemVote.objects.create(
+                    problem=problem,
+                    voter_hash=voter_hash,
+                    session_key="session-two",
+                )
 
     def test_ajax_vote_can_set_desired_state_idempotently(self):
         problem = make_problem(Problem.Status.SENT)
@@ -563,6 +654,233 @@ class ProblemMediaCleanupTests(TestCase):
 
         self.assertFalse(photo_path.exists())
         self.assertFalse(evidence_path.exists())
+
+
+class ProtectedAttachmentAccessTests(TestCase):
+    def setUp(self):
+        self.media_dir = tempfile.TemporaryDirectory()
+        self.override = override_settings(
+            MEDIA_ROOT=self.media_dir.name,
+            PROTECTED_MEDIA_USE_X_ACCEL=False,
+        )
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.media_dir.cleanup()
+
+    def make_photo(self, problem):
+        upload = make_image_upload("secret-family-name.jpg")
+
+        return ProblemPhoto.objects.create(
+            problem=problem,
+            image=upload,
+            content_type=upload.content_type,
+            file_size=upload.size,
+        )
+
+    def make_evidence(self, problem):
+        upload = SimpleUploadedFile(
+            "resident-response.pdf",
+            b"%PDF-1.4\n%test\n",
+            content_type="application/pdf",
+        )
+
+        return ProblemEvidenceFile.objects.create(
+            problem=problem,
+            file=upload,
+            original_name="resident-response.pdf",
+            content_type=upload.content_type,
+            file_size=upload.size,
+        )
+
+    def make_attachment_url(self, user, attachment, action):
+        self.client.force_login(user)
+        request = RequestFactory().get("/")
+        request.user = user
+        request.session = self.client.session
+        token = make_attachment_token(request, attachment, action)
+
+        return reverse("attachment_access", args=[attachment.public_id, action, token])
+
+    def test_public_html_does_not_expose_media_path_name_or_uuid(self):
+        problem = make_problem(
+            Problem.Status.SENT,
+            is_public=True,
+            title="Проблема с фото",
+        )
+        photo = self.make_photo(problem)
+
+        response = self.client.get(reverse("public_problems"))
+        body = response.content.decode()
+
+        self.assertContains(response, "data-protected-photo")
+        self.assertNotIn("/media/", body)
+        self.assertNotIn(photo.image.name, body)
+        self.assertNotIn(str(photo.public_id), body)
+        self.assertNotIn("secret-family-name", body)
+
+    def test_public_photo_is_fetched_through_checked_endpoint(self):
+        problem = make_problem(Problem.Status.SENT, is_public=True)
+        self.make_photo(problem)
+
+        self.client.get(reverse("public_problems"))
+        response = self.client.post(
+            reverse("fetch_public_problem_photo"),
+            {"problem_id": problem.id, "position": "0"},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertIn("noindex", response["X-Robots-Tag"])
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertNotIn(str(settings.MEDIA_ROOT), str(response.headers))
+
+    def test_private_photo_is_not_available_to_public_photo_fetch(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        self.make_photo(problem)
+
+        response = self.client.post(
+            reverse("fetch_public_problem_photo"),
+            {"problem_id": problem.id, "position": "0"},
+            HTTP_X_REQUESTED_WITH="fetch",
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_direct_media_and_internal_routes_are_not_django_public_routes(self):
+        problem = make_problem(Problem.Status.SENT, is_public=True)
+        photo = self.make_photo(problem)
+
+        for path in [
+            f"/media/{photo.image.name}",
+            f"/protected-media/{photo.image.name}",
+        ]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertEqual(response.status_code, 404)
+
+    def test_superuser_can_view_evidence_with_session_bound_token(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        evidence = self.make_evidence(problem)
+        user = get_user_model().objects.create_superuser(
+            username="root-admin",
+            email="root@example.com",
+            password="password",
+        )
+        url = self.make_attachment_url(user, evidence, "view")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertTrue(
+            AttachmentAccessAudit.objects.filter(
+                attachment_public_id=evidence.public_id,
+                success=True,
+            ).exists()
+        )
+
+    def test_copied_admin_link_fails_without_original_session(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        evidence = self.make_evidence(problem)
+        user = get_user_model().objects.create_superuser(
+            username="copy-admin",
+            email="copy@example.com",
+            password="password",
+        )
+        url = self.make_attachment_url(user, evidence, "view")
+        copied_client = self.client_class()
+        copied_client.force_login(user)
+
+        response = copied_client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_staff_without_attachment_permission_is_denied(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        evidence = self.make_evidence(problem)
+        user = get_user_model().objects.create_user(
+            username="limited-staff",
+            password="password",
+            is_staff=True,
+        )
+        user.user_permissions.add(Permission.objects.get(codename="view_problem"))
+        url = self.make_attachment_url(user, evidence, "view")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(
+            AttachmentAccessAudit.objects.filter(
+                attachment_public_id=evidence.public_id,
+                success=False,
+            ).exists()
+        )
+
+    def test_staff_with_permission_can_download_evidence(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        evidence = self.make_evidence(problem)
+        user = get_user_model().objects.create_user(
+            username="evidence-staff",
+            password="password",
+            is_staff=True,
+        )
+        user.user_permissions.set(
+            Permission.objects.filter(
+                codename__in=[
+                    "view_problem",
+                    "download_problem_evidence_file",
+                ]
+            )
+        )
+        url = self.make_attachment_url(user, evidence, "download")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn("resident-response.pdf", response["Content-Disposition"])
+
+    def test_expired_attachment_token_is_rejected(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        evidence = self.make_evidence(problem)
+        user = get_user_model().objects.create_superuser(
+            username="expired-admin",
+            email="expired@example.com",
+            password="password",
+        )
+        url = self.make_attachment_url(user, evidence, "view")
+
+        with patch(
+            "django.core.signing.time.time",
+            return_value=time.time() + ATTACHMENT_TOKEN_MAX_AGE + 5,
+        ):
+            response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(PROTECTED_MEDIA_USE_X_ACCEL=True)
+    def test_authorized_attachment_uses_x_accel_redirect(self):
+        problem = make_problem(Problem.Status.NEW, is_public=False)
+        photo = self.make_photo(problem)
+        user = get_user_model().objects.create_superuser(
+            username="photo-admin",
+            email="photo@example.com",
+            password="password",
+        )
+        url = self.make_attachment_url(user, photo, "view")
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["X-Accel-Redirect"].startswith("/protected-media/"))
+        self.assertNotIn(str(settings.MEDIA_ROOT), response["X-Accel-Redirect"])
+        self.assertNotIn("/media/", response["X-Accel-Redirect"])
 
 
 class ProblemAdminTests(TestCase):

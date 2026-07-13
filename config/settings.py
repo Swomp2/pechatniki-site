@@ -198,6 +198,8 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_AGE = get_int_env("DJANGO_SESSION_COOKIE_AGE", 60 * 60 * 24 * 365)
 
 SECURE_HSTS_SECONDS = get_int_env(
     "DJANGO_SECURE_HSTS_SECONDS",
@@ -253,6 +255,43 @@ PROBLEM_VOTE_MIN_INTERVAL_SECONDS = get_float_env(
 )
 PROBLEM_LIST_PAGE_SIZE = get_int_env("PROBLEM_LIST_PAGE_SIZE", 12)
 
+# Голос хранится не по IP/User-Agent, а по случайному cookie-токену браузера.
+# В базе лежит только HMAC этого токена: утечка SQLite не раскрывает cookie,
+# а удаление cookie пользователем честно создаст новый браузерный идентификатор.
+PROBLEM_VOTER_COOKIE_NAME = os.environ.get(
+    "PROBLEM_VOTER_COOKIE_NAME",
+    "np_problem_voter",
+)
+PROBLEM_VOTER_COOKIE_AGE = get_int_env(
+    "PROBLEM_VOTER_COOKIE_AGE",
+    60 * 60 * 24 * 400,
+)
+PROBLEM_VOTER_COOKIE_SECURE = get_bool_env(
+    "PROBLEM_VOTER_COOKIE_SECURE",
+    not DEBUG,
+)
+PROBLEM_VOTER_COOKIE_SAMESITE = os.environ.get(
+    "PROBLEM_VOTER_COOKIE_SAMESITE",
+    "Lax",
+)
+PROBLEM_VOTER_HMAC_KEY = os.environ.get("PROBLEM_VOTER_HMAC_KEY")
+
+if not PROBLEM_VOTER_HMAC_KEY:
+    if DEBUG:
+        PROBLEM_VOTER_HMAC_KEY = base64.urlsafe_b64encode(
+            hashlib.sha256(
+                f"local-voter-hmac:{SECRET_KEY}".encode("utf-8")
+            ).digest()
+        ).decode("ascii")
+    else:
+        raise ImproperlyConfigured("PROBLEM_VOTER_HMAC_KEY is required in production.")
+
+# В production файлы отдаёт Nginx только после проверки Django через
+# X-Accel-Redirect. В DEBUG можно отключить accel и читать файл Django-ответом,
+# чтобы локальный runserver не терял изображения.
+PROTECTED_MEDIA_URL = "/protected-media/"
+PROTECTED_MEDIA_USE_X_ACCEL = get_bool_env("PROTECTED_MEDIA_USE_X_ACCEL", not DEBUG)
+
 FILE_UPLOAD_MAX_MEMORY_SIZE = get_int_env(
     "DJANGO_FILE_UPLOAD_MAX_MEMORY_SIZE",
     2_500_000,
@@ -302,6 +341,11 @@ LOGGING = {
     },
     "loggers": {
         "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
             "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,

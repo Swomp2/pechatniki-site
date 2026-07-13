@@ -1,10 +1,14 @@
 import time
+from pathlib import Path
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.middleware.csrf import get_token
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.http import (
     Http404,
+    HttpResponseForbidden,
     HttpResponseNotAllowed,
     HttpResponsePermanentRedirect,
     JsonResponse,
@@ -14,6 +18,21 @@ from django.urls import reverse
 
 from .forms import ProblemForm
 from .models import Problem, ProblemEvidenceFile, ProblemPhoto, ProblemVote
+from .protected_media import (
+    AttachmentAccessAudit,
+    can_admin_download_evidence,
+    can_admin_download_photo,
+    can_admin_view_evidence,
+    can_admin_view_photo,
+    ensure_session_key,
+    get_attachment_by_public_id,
+    get_content_type,
+    make_protected_file_response,
+    record_attachment_access,
+    sanitize_download_name,
+    verify_attachment_token,
+)
+from .voters import get_or_create_voter_identity, set_voter_cookie
 
 ACTIVE_PROBLEM_STATUSES = [
     Problem.Status.SENT,
@@ -119,7 +138,7 @@ def legacy_redirect(route_name, *route_args):
 
 def build_vote_payload(
     problem,
-    session_key,
+    voter_hash,
     voted=None,
     operation="unchanged",
     retry_after_seconds=0,
@@ -127,7 +146,7 @@ def build_vote_payload(
     if voted is None:
         voted = ProblemVote.objects.filter(
             problem=problem,
-            session_key=session_key,
+            voter_hash=voter_hash,
         ).exists()
 
     return {
@@ -160,13 +179,21 @@ def create_problem(request):
                     ProblemPhoto.objects.create(
                         problem=problem,
                         image=photo,
+                        content_type=getattr(photo, "content_type", ""),
+                        file_size=getattr(photo, "size", 0),
                     )
 
                 for evidence_file in form.cleaned_data.get("evidence_files", []):
                     ProblemEvidenceFile.objects.create(
                         problem=problem,
                         file=evidence_file,
-                        original_name=evidence_file.name,
+                        original_name=getattr(
+                            evidence_file,
+                            "original_client_name",
+                            evidence_file.name,
+                        )[:255],
+                        content_type=getattr(evidence_file, "content_type", ""),
+                        file_size=getattr(evidence_file, "size", 0),
                     )
 
             success_url = reverse("problem_success")
@@ -218,6 +245,8 @@ def problem_success(request):
 
 # Функция отображения решённых проблем
 def resolved_problems(request):
+    ensure_session_key(request)
+    get_token(request)
     # Даже решённые заявки показываем только после явной публикации модератором.
     problems_queryset = (
         Problem.objects.filter(
@@ -238,6 +267,9 @@ def resolved_problems(request):
 
 # Функция отображения публичных проблем
 def public_problems(request):
+    ensure_session_key(request)
+    get_token(request)
+    voter_identity = get_or_create_voter_identity(request)
     # Актуальный публичный список содержит только опубликованные рабочие статусы.
     # NEW/REJECTED/RESOLVED не должны попадать сюда даже по прямому запросу.
     problems_queryset = (
@@ -248,20 +280,16 @@ def public_problems(request):
     )
     page_obj = paginate_problems(request, problems_queryset)
 
-    if request.session.session_key:
-        page_problem_ids = [problem.id for problem in page_obj.object_list]
-        # Список нужен только для отрисовки aria-pressed на кнопках голосования.
-        voted_problem_ids = list(
-            ProblemVote.objects.filter(
-                session_key=request.session.session_key,
-                problem_id__in=page_problem_ids,
-            ).values_list("problem_id", flat=True)
-        )
+    page_problem_ids = [problem.id for problem in page_obj.object_list]
+    # Список нужен только для отрисовки aria-pressed на кнопках голосования.
+    voted_problem_ids = list(
+        ProblemVote.objects.filter(
+            voter_hash=voter_identity["hash"],
+            problem_id__in=page_problem_ids,
+        ).values_list("problem_id", flat=True)
+    )
 
-    else:
-        voted_problem_ids = []
-
-    return render(
+    response = render(
         request,
         "problems/public_problems.html",
         {
@@ -271,9 +299,16 @@ def public_problems(request):
         },
     )
 
+    if voter_identity["should_set_cookie"]:
+        set_voter_cookie(response, voter_identity["token"])
+
+    return response
+
 
 # Функция для показа отклонённых проблем
 def rejected_problems(request):
+    ensure_session_key(request)
+    get_token(request)
     # Отклонённые заявки могут содержать неподходящий текст или персональные данные,
     # поэтому показываем только те, которые модератор явно сделал публичными.
     problems_queryset = (
@@ -306,9 +341,17 @@ def upvote_problem(request, problem_id):
 
         return redirect("public_problems")
 
-    # Если сессии не было, создаём, чтобы один браузер не мог голосовать несколько раз
-    if not request.session.session_key:
-        request.session.create()
+    # Сессия нужна для rate limit, а постоянный voter cookie — для сохранения
+    # голоса между пересборками контейнеров. В БД попадает только HMAC cookie.
+    ensure_session_key(request)
+    voter_identity = get_or_create_voter_identity(request)
+    voter_hash = voter_identity["hash"]
+
+    def with_voter_cookie(response):
+        if voter_identity["should_set_cookie"]:
+            set_voter_cookie(response, voter_identity["token"])
+
+        return response
 
     # Голосовать можно только за опубликованные активные заявки: это не даёт
     # накручивать скрытые, решённые, отклонённые или ещё не прошедшие модерацию.
@@ -321,7 +364,9 @@ def upvote_problem(request, problem_id):
         )
     except Http404:
         if wants_json:
-            return JsonResponse({"error": "problem_not_found"}, status=404)
+            return with_voter_cookie(
+                JsonResponse({"error": "problem_not_found"}, status=404)
+            )
 
         raise
 
@@ -331,23 +376,25 @@ def upvote_problem(request, problem_id):
     if desired_voted is not None:
         current_voted = ProblemVote.objects.filter(
             problem=problem,
-            session_key=request.session.session_key,
+            voter_hash=voter_hash,
         ).exists()
 
         if desired_voted == current_voted:
             problem.refresh_from_db(fields=["votes_count"])
 
             if wants_json:
-                return JsonResponse(
-                    build_vote_payload(
-                        problem,
-                        request.session.session_key,
-                        voted=current_voted,
-                        operation="unchanged",
+                return with_voter_cookie(
+                    JsonResponse(
+                        build_vote_payload(
+                            problem,
+                            voter_hash,
+                            voted=current_voted,
+                            operation="unchanged",
+                        )
                     )
                 )
 
-            return redirect_to_problem(problem.id)
+            return with_voter_cookie(redirect_to_problem(problem.id))
 
     retry_after_seconds = get_vote_retry_after_seconds(request, problem.id)
 
@@ -355,47 +402,59 @@ def upvote_problem(request, problem_id):
         if wants_json:
             payload = build_vote_payload(
                 problem,
-                request.session.session_key,
+                voter_hash,
                 voted=current_voted,
                 operation="unchanged",
                 retry_after_seconds=retry_after_seconds,
             )
             payload["error"] = "rate_limited"
 
-            return JsonResponse(payload, status=429)
+            return with_voter_cookie(JsonResponse(payload, status=429))
 
-        return redirect_to_problem(problem.id)
+        return with_voter_cookie(redirect_to_problem(problem.id))
 
     mark_vote_activity(request, problem.id)
 
     # transaction.atomic() говорит django, что все действия внутри блока должны
     # выполниться как одна операция
     with transaction.atomic():
-        # Один session_key даёт один голос на одну проблему. Это удобная защита
-        # от случайных повторов, но не полноценная защита от накрутки.
+        session_key = request.session.session_key or ""
+
+        # Один HMAC браузерного cookie даёт один голос на проблему. Уникальность
+        # дополнительно защищена на уровне БД, поэтому быстрый дубль не создаст
+        # две строки даже при гонке запросов.
         if desired_voted is None:
-            vote, created = ProblemVote.objects.get_or_create(
+            deleted_count, _ = ProblemVote.objects.filter(
                 problem=problem,
-                session_key=request.session.session_key,
-            )
+                voter_hash=voter_hash,
+            ).delete()
 
-            # Если не оставлял, то created будет True и выполнится этот блок
-            if created:
-                voted = True
-                operation = "added"
-
-            # Если голос уже был и пользователь нажал на + повторно,
-            # то этот + удаляется.
-            else:
-                vote.delete()
+            if deleted_count:
                 voted = False
                 operation = "removed"
+            else:
+                try:
+                    ProblemVote.objects.create(
+                        problem=problem,
+                        voter_hash=voter_hash,
+                        session_key=session_key[:40],
+                    )
+                    voted = True
+                    operation = "added"
+                except IntegrityError:
+                    voted = True
+                    operation = "unchanged"
 
         elif desired_voted:
-            _, created = ProblemVote.objects.get_or_create(
-                problem=problem,
-                session_key=request.session.session_key,
-            )
+            try:
+                ProblemVote.objects.create(
+                    problem=problem,
+                    voter_hash=voter_hash,
+                    session_key=session_key[:40],
+                )
+                created = True
+            except IntegrityError:
+                created = False
 
             voted = True
             operation = "added" if created else "unchanged"
@@ -403,7 +462,7 @@ def upvote_problem(request, problem_id):
         else:
             deleted_count, _ = ProblemVote.objects.filter(
                 problem=problem,
-                session_key=request.session.session_key,
+                voter_hash=voter_hash,
             ).delete()
 
             voted = False
@@ -415,13 +474,110 @@ def upvote_problem(request, problem_id):
     problem.refresh_from_db(fields=["votes_count"])
 
     if wants_json:
-        return JsonResponse(
-            build_vote_payload(
-                problem,
-                request.session.session_key,
-                voted=voted,
-                operation=operation,
+        return with_voter_cookie(
+            JsonResponse(
+                build_vote_payload(
+                    problem,
+                    voter_hash,
+                    voted=voted,
+                    operation=operation,
+                )
             )
         )
 
-    return redirect_to_problem(problem.id)
+    return with_voter_cookie(redirect_to_problem(problem.id))
+
+
+def fetch_public_problem_photo(request):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    ensure_session_key(request)
+
+    try:
+        problem_id = int(request.POST.get("problem_id", ""))
+        position = int(request.POST.get("position", ""))
+    except (TypeError, ValueError) as exc:
+        raise Http404("Фото недоступно") from exc
+
+    if position < 0:
+        raise Http404("Фото недоступно")
+
+    visible_problem_filter = Q(
+        problem__status__in=ACTIVE_PROBLEM_STATUSES + [Problem.Status.RESOLVED]
+    ) | Q(problem__status=Problem.Status.REJECTED, problem__rejection_reason__gt="")
+    photos = ProblemPhoto.objects.filter(
+        visible_problem_filter,
+        problem_id=problem_id,
+        problem__is_public=True,
+    ).order_by("uploaded_at", "id")
+
+    try:
+        photo = photos[position]
+    except IndexError as exc:
+        raise Http404("Фото недоступно") from exc
+
+    content_type = get_content_type(photo.image, photo.content_type)
+    extension = Path(photo.image.name).suffix.lower() or ".jpg"
+
+    return make_protected_file_response(
+        photo.image,
+        content_type,
+        f"problem-photo-{photo.public_id}{extension}",
+        inline=True,
+    )
+
+
+def attachment_access(request, public_id, action, token):
+    if action not in {
+        AttachmentAccessAudit.Action.VIEW,
+        AttachmentAccessAudit.Action.DOWNLOAD,
+    }:
+        raise Http404("Вложение недоступно")
+
+    attachment_type, attachment = get_attachment_by_public_id(public_id)
+    user = request.user
+    success = False
+
+    try:
+        verify_attachment_token(request, attachment, action, token)
+
+        if attachment_type == AttachmentAccessAudit.AttachmentType.PHOTO:
+            allowed = (
+                can_admin_download_photo(user)
+                if action == AttachmentAccessAudit.Action.DOWNLOAD
+                else can_admin_view_photo(user)
+            )
+            file_field = attachment.image
+            content_type = get_content_type(file_field, attachment.content_type)
+            extension = Path(file_field.name).suffix.lower() or ".jpg"
+            filename = f"problem-photo-{attachment.public_id}{extension}"
+        else:
+            allowed = (
+                can_admin_download_evidence(user)
+                if action == AttachmentAccessAudit.Action.DOWNLOAD
+                else can_admin_view_evidence(user)
+            )
+            file_field = attachment.file
+            content_type = get_content_type(file_field, attachment.content_type)
+            filename = sanitize_download_name(
+                attachment.original_name,
+                f"problem-evidence-{attachment.public_id}",
+            )
+
+        if not allowed:
+            return HttpResponseForbidden("Вложение недоступно")
+
+        success = True
+
+        return make_protected_file_response(
+            file_field,
+            content_type,
+            filename,
+            inline=action == AttachmentAccessAudit.Action.VIEW,
+        )
+    finally:
+        if attachment_type != AttachmentAccessAudit.AttachmentType.PHOTO or (
+            not attachment.problem.is_public
+        ):
+            record_attachment_access(user, attachment_type, attachment, action, success)

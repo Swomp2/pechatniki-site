@@ -18,6 +18,16 @@ urlpatterns = [
         views.upvote_problem,
         name="upvote_problem",
     ),
+    path(
+        "вложения/фото/получить/",
+        views.fetch_public_problem_photo,
+        name="fetch_public_problem_photo",
+    ),
+    path(
+        "вложения/<uuid:public_id>/<str:action>/<path:token>/",
+        views.attachment_access,
+        name="attachment_access",
+    ),
     path("problems/", views.legacy_redirect("public_problems")),
     path("problems/send/", views.legacy_redirect("create_problem")),
     path("problems/success/", views.legacy_redirect("problem_success")),

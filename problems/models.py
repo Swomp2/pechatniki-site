@@ -1,3 +1,6 @@
+import uuid
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -111,14 +114,35 @@ class ProblemPhoto(models.Model):
         verbose_name="Обращение",
     )
 
+    # public_id отделяет внешний идентификатор вложения от pk и физического пути.
+    # Сам по себе UUID не авторизует доступ: каждый запрос всё равно проверяет view.
+    public_id = models.UUIDField(
+        "Публичный идентификатор",
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
     image = models.ImageField(
         "Фото",
         upload_to="problem_photos/",
     )
 
+    content_type = models.CharField("MIME-тип", max_length=120, blank=True)
+    file_size = models.PositiveBigIntegerField("Размер файла", default=0)
     uploaded_at = models.DateTimeField("Загружено", auto_now_add=True)
 
     class Meta:
+        permissions = [
+            (
+                "view_private_problem_photo",
+                "Can view private problem photos",
+            ),
+            (
+                "download_problem_photo",
+                "Can download problem photos",
+            ),
+        ]
         verbose_name = "Фото проблемы"
         verbose_name_plural = "Фото проблем"
 
@@ -134,18 +158,34 @@ class ProblemVote(models.Model):
         verbose_name="Важность",
     )
 
-    session_key = models.CharField("Ключ сессии", max_length=40)
+    # Исторически голос был привязан к Django session_key. Поле оставлено для
+    # мягкой миграции старых записей, но новые проверки используют voter_hash.
+    session_key = models.CharField("Ключ сессии", max_length=40, blank=True)
+    voter_hash = models.CharField(
+        "HMAC браузерного идентификатора",
+        max_length=64,
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField("Создано", auto_now_add=True)
 
     class Meta:
-        # По session_key быстро строим список уже отмеченных проблем для кнопок.
+        # По voter_hash быстро строим список уже отмеченных проблем для кнопок.
+        # Открытый cookie-токен в базе не храним: только HMAC серверным ключом.
         indexes = [
             models.Index(fields=["session_key"], name="problem_vote_session_idx"),
+            models.Index(fields=["voter_hash"], name="problem_vote_voter_hash_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["problem", "session_key"],
                 name="unique_problem_vote_per_session",
+                condition=models.Q(session_key__gt=""),
+            ),
+            models.UniqueConstraint(
+                fields=["problem", "voter_hash"],
+                name="unique_problem_vote_per_voter_hash",
+                condition=models.Q(voter_hash__isnull=False),
             )
         ]
 
@@ -166,6 +206,15 @@ class ProblemEvidenceFile(models.Model):
         verbose_name="Проблема",
     )
 
+    # UUID используется только как непрозрачный идентификатор записи.
+    # Он не заменяет permission check и не раскрывает путь в MEDIA_ROOT.
+    public_id = models.UUIDField(
+        "Публичный идентификатор",
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
     file = models.FileField(
         "Файл с ответом, отказом или отпиской",
         upload_to="problem_evidence/",
@@ -177,14 +226,69 @@ class ProblemEvidenceFile(models.Model):
         blank=True,
     )
 
+    content_type = models.CharField("MIME-тип", max_length=120, blank=True)
+    file_size = models.PositiveBigIntegerField("Размер файла", default=0)
+
     uploaded_at = models.DateTimeField(
         "Дата загрузки",
         auto_now_add=True,
     )
 
     class Meta:
+        permissions = [
+            (
+                "view_problem_evidence_file",
+                "Can view problem evidence files",
+            ),
+            (
+                "download_problem_evidence_file",
+                "Can download problem evidence files",
+            ),
+        ]
         verbose_name = "Файл по предыдущему обращению"
         verbose_name_plural = "Файлы по предыдущим обращениям"
 
     def __str__(self):
         return self.original_name or self.file.name
+
+
+class AttachmentAccessAudit(models.Model):
+    class AttachmentType(models.TextChoices):
+        PHOTO = "photo", "Фото"
+        EVIDENCE = "evidence", "Документ"
+
+    class Action(models.TextChoices):
+        VIEW = "view", "Просмотр"
+        DOWNLOAD = "download", "Скачивание"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Пользователь",
+    )
+    attachment_type = models.CharField(
+        "Тип вложения",
+        max_length=20,
+        choices=AttachmentType.choices,
+    )
+    attachment_public_id = models.UUIDField("Идентификатор вложения")
+    problem_id = models.PositiveBigIntegerField("ID обращения")
+    action = models.CharField("Действие", max_length=20, choices=Action.choices)
+    success = models.BooleanField("Успешно", default=False)
+    created_at = models.DateTimeField("Дата", auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        permissions = [
+            (
+                "view_attachment_access_audit",
+                "Can view attachment access audit",
+            ),
+        ]
+        verbose_name = "Аудит доступа к вложению"
+        verbose_name_plural = "Аудит доступа к вложениям"
+
+    def __str__(self):
+        return f"{self.get_action_display()} {self.attachment_public_id}"
