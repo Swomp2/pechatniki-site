@@ -358,9 +358,6 @@ function setupProblemNavAutoscroll() {
   let lastFrameTime = 0;
   let isOverflowing = false;
   let isPointerDown = false;
-  let isPointerInside = false;
-  let isFocusInside = false;
-  let isInViewport = true;
   let isProgrammaticScroll = false;
 
   // Предыдущие варианты двигали внутренние обёртки и ломали ручную прокрутку.
@@ -386,6 +383,10 @@ function setupProblemNavAutoscroll() {
       return;
     }
 
+    if (animationFrame || resumeTimer || edgePauseTimer) {
+      return;
+    }
+
     scheduleAutoscroll(initialIdleMs);
   }
 
@@ -394,7 +395,6 @@ function setupProblemNavAutoscroll() {
       isOverflowing &&
       !document.hidden &&
       !motionQuery.matches &&
-      isInViewport &&
       !hasHeldInteraction()
     );
   }
@@ -526,7 +526,7 @@ function setupProblemNavAutoscroll() {
   }
 
   function hasHeldInteraction() {
-    return isPointerDown || isPointerInside || isFocusInside;
+    return isPointerDown;
   }
 
   function updateDirectionFromPosition() {
@@ -535,20 +535,6 @@ function setupProblemNavAutoscroll() {
     } else if (animatedScrollLeft >= maxScrollLeft - 1) {
       direction = -1;
     }
-  }
-
-  function revealFocusedLink(event) {
-    const link = event.target.closest(".site-nav a");
-
-    if (!link) {
-      return;
-    }
-
-    link.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: motionQuery.matches ? "auto" : "smooth",
-    });
   }
 
   function queueMeasure() {
@@ -564,88 +550,56 @@ function setupProblemNavAutoscroll() {
     });
   }
 
-  nav.addEventListener("mouseenter", function () {
-    isPointerInside = true;
+  function handleMenuPress() {
+    isPointerDown = true;
     holdAutoscroll();
-  });
+  }
 
-  nav.addEventListener("mouseleave", function () {
-    isPointerInside = false;
+  function releaseMenuPress() {
+    if (!isPointerDown) {
+      return;
+    }
+
+    isPointerDown = false;
     pauseAfterInteraction();
-  });
+  }
 
   if ("PointerEvent" in window) {
-    nav.addEventListener("pointerdown", function () {
-      isPointerDown = true;
-      holdAutoscroll();
-    });
-
-    nav.addEventListener("pointerup", function () {
-      isPointerDown = false;
-      pauseAfterInteraction();
-    });
-
-    nav.addEventListener("pointercancel", function () {
-      isPointerDown = false;
-      pauseAfterInteraction();
-    });
+    nav.addEventListener("pointerdown", handleMenuPress);
+    nav.addEventListener("pointerup", releaseMenuPress);
+    nav.addEventListener("pointercancel", releaseMenuPress);
+    document.addEventListener("pointerup", releaseMenuPress);
+    document.addEventListener("pointercancel", releaseMenuPress);
   } else {
-    nav.addEventListener("mousedown", function () {
-      isPointerDown = true;
-      holdAutoscroll();
-    });
-
-    nav.addEventListener("mouseup", function () {
-      isPointerDown = false;
-      pauseAfterInteraction();
-    });
+    nav.addEventListener("mousedown", handleMenuPress);
+    document.addEventListener("mouseup", releaseMenuPress);
 
     nav.addEventListener(
       "touchstart",
-      function () {
-        isPointerDown = true;
-        holdAutoscroll();
-      },
+      handleMenuPress,
       { passive: true },
     );
 
     nav.addEventListener(
       "touchend",
-      function () {
-        isPointerDown = false;
-        pauseAfterInteraction();
-      },
+      releaseMenuPress,
       { passive: true },
     );
 
-    nav.addEventListener(
+    document.addEventListener(
+      "touchend",
+      releaseMenuPress,
+      { passive: true },
+    );
+
+    document.addEventListener(
       "touchcancel",
-      function () {
-        isPointerDown = false;
-        pauseAfterInteraction();
-      },
+      releaseMenuPress,
       { passive: true },
     );
   }
 
   nav.addEventListener("click", pauseAfterInteraction);
-  nav.addEventListener("wheel", pauseAfterInteraction, { passive: true });
-
-  nav.addEventListener("focusin", function (event) {
-    isFocusInside = true;
-    holdAutoscroll();
-    revealFocusedLink(event);
-  });
-
-  nav.addEventListener("focusout", function () {
-    window.setTimeout(function () {
-      isFocusInside = nav.contains(document.activeElement);
-
-      if (!isFocusInside) {
-        pauseAfterInteraction();
-      }
-    }, 0);
-  });
 
   nav.addEventListener("scroll", function () {
     if (isProgrammaticScroll) {
@@ -654,7 +608,6 @@ function setupProblemNavAutoscroll() {
 
     animatedScrollLeft = clampAutoscrollValue(nav.scrollLeft);
     updateDirectionFromPosition();
-    pauseAfterInteraction();
   });
 
   document.addEventListener("visibilitychange", function () {
@@ -687,28 +640,6 @@ function setupProblemNavAutoscroll() {
     resizeObserver.observe(nav);
     resizeObserver.observe(nav.parentElement || nav);
   }
-
-  if ("IntersectionObserver" in window) {
-    const intersectionObserver = new IntersectionObserver(function (entries) {
-      isInViewport = entries.some(function (entry) {
-        return entry.isIntersecting;
-      });
-
-      if (!isInViewport) {
-        stopAutoscroll();
-        return;
-      }
-
-      queueMeasure();
-    });
-
-    intersectionObserver.observe(nav);
-  }
-
-  new MutationObserver(queueMeasure).observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme", "class"],
-  });
 
   measureOverflow();
 }
