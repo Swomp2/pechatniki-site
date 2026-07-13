@@ -14,6 +14,19 @@ ATTACHMENT_TOKEN_PATH_PATTERN = re.compile(
 ATTACHMENT_TOKEN_SEGMENT_PATTERN = re.compile(
     r"(/(?:view|download)/)[A-Za-z0-9_.:-]{24,}"
 )
+PUBLIC_PHOTO_TOKEN_PATH_PATTERN = re.compile(
+    (
+        r"(/вложения/фото/"
+        r"|/%D0%B2%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F"
+        r"/%D1%84%D0%BE%D1%82%D0%BE/"
+        r"|/\\u0432\\u043b\\u043e\\u0436\\u0435\\u043d\\u0438\\u044f"
+        r"/\\u0444\\u043e\\u0442\\u043e/)[^\s?]+"
+    ),
+    re.IGNORECASE,
+)
+PUBLIC_PHOTO_TOKEN_SEGMENT_PATTERN = re.compile(
+    r"(/фото/)[A-Za-z0-9_.:-]{24,}"
+)
 
 
 class SensitiveValueFilter(logging.Filter):
@@ -32,6 +45,14 @@ class SensitiveValueFilter(logging.Filter):
         )
         message = ATTACHMENT_TOKEN_SEGMENT_PATTERN.sub(
             r"\1[attachment token redacted]",
+            message,
+        )
+        message = PUBLIC_PHOTO_TOKEN_PATH_PATTERN.sub(
+            r"\1[photo token redacted]",
+            message,
+        )
+        message = PUBLIC_PHOTO_TOKEN_SEGMENT_PATTERN.sub(
+            r"\1[photo token redacted]",
             message,
         )
         record.msg = message

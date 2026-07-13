@@ -1,7 +1,12 @@
 # Файл отвечает за отображение моделей в админ панели
 
+from pathlib import Path
+
+from django import forms
+from django.conf import settings
 from django.contrib import admin, messages  # Встроенная система админки
 from django.db.models import Q
+from django.forms.models import BaseInlineFormSet
 from django.urls import reverse
 from django.utils.html import format_html
 
@@ -20,6 +25,14 @@ from .models import (  # Модели из файла config/models.py
     ProblemEvidenceFile,
     ProblemPhoto,
 )
+from .forms import (
+    EVIDENCE_EXTENSIONS,
+    PHOTO_EXTENSIONS,
+    get_file_extension,
+    validate_pdf,
+    validate_uploaded_image,
+)
+from .image_processing import build_safe_upload_name
 from .protected_media import (
     can_admin_download_evidence,
     can_admin_download_photo,
@@ -31,20 +44,240 @@ from .protected_media import (
 configure_admin_site()
 
 CONTACT_PHONE_PERMISSION = "problems.view_problem_contact_phone"
+PHOTO_ADMIN_ACCEPT = "image/jpeg,image/png,image/webp"
+EVIDENCE_ADMIN_ACCEPT = (
+    ".pdf,.jpg,.jpeg,.png,.webp,"
+    "application/pdf,image/jpeg,image/png,image/webp"
+)
+DANGEROUS_DOUBLE_EXTENSIONS = {
+    ".bat",
+    ".cmd",
+    ".com",
+    ".exe",
+    ".html",
+    ".htm",
+    ".js",
+    ".mjs",
+    ".php",
+    ".ps1",
+    ".sh",
+    ".svg",
+}
+
+
+def is_new_upload(value):
+    return bool(
+        value
+        and hasattr(value, "content_type")
+        and hasattr(value, "size")
+        and hasattr(value, "name")
+    )
+
+
+def has_dangerous_double_extension(filename):
+    suffixes = Path(filename).suffixes
+
+    if len(suffixes) < 2:
+        return False
+
+    return any(
+        suffix.lower() in DANGEROUS_DOUBLE_EXTENSIONS
+        for suffix in suffixes[:-1]
+    )
+
+
+def format_file_size(value):
+    if not value:
+        return "Неизвестно"
+
+    units = ("Б", "КБ", "МБ", "ГБ")
+    size = float(value)
+
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.1f} {unit}" if unit != "Б" else f"{int(size)} {unit}"
+
+        size /= 1024
+
+    return f"{int(value)} Б"
+
+
+class ExistingAttachmentWidget(forms.Widget):
+    # Существующее вложение нельзя подменить через inline-строку: для него
+    # рендерится только текст, а настоящий input остаётся только у новых форм.
+    def __init__(self, label):
+        super().__init__()
+        self.label = label
+
+    def render(self, name, value, attrs=None, renderer=None):
+        return format_html('<span class="readonly">{}</span>', self.label)
+
+    def value_from_datadict(self, data, files, name):
+        return None
+
+    def use_required_attribute(self, initial):
+        return False
+
+
+class AttachmentInlineFormSet(BaseInlineFormSet):
+    # File input есть в empty_form, которую Django admin клонирует кнопкой
+    # "Добавить ещё", поэтому весь change form должен оставаться multipart.
+    def is_multipart(self):
+        return True
+
+
+class ProblemPhotoAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProblemPhoto
+        fields = (
+            "problem",
+            "image",
+        )
+        widgets = {
+            "image": forms.FileInput(attrs={"accept": PHOTO_ADMIN_ACCEPT}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields["image"].disabled = True
+            self.fields["image"].required = False
+            self.fields["image"].widget = ExistingAttachmentWidget(
+                "Фотография уже сохранена"
+            )
+
+    def clean_image(self):
+        if self.instance and self.instance.pk:
+            return self.instance.image
+
+        uploaded_file = self.cleaned_data.get("image")
+
+        if not is_new_upload(uploaded_file):
+            return uploaded_file
+
+        if has_dangerous_double_extension(uploaded_file.name):
+            raise forms.ValidationError("Имя файла содержит опасное двойное расширение.")
+
+        if uploaded_file.size > settings.PROBLEM_PHOTO_MAX_SIZE:
+            raise forms.ValidationError(
+                "Размер фотографии не должен превышать "
+                f"{settings.PROBLEM_PHOTO_MAX_SIZE // 1024 // 1024} МБ."
+            )
+
+        return validate_uploaded_image(uploaded_file, PHOTO_EXTENSIONS)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("image")
+
+        if is_new_upload(uploaded_file):
+            instance.content_type = uploaded_file.content_type
+            instance.file_size = uploaded_file.size
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+
+        return instance
+
+
+class ProblemEvidenceFileAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProblemEvidenceFile
+        fields = (
+            "problem",
+            "file",
+        )
+        widgets = {
+            "file": forms.FileInput(attrs={"accept": EVIDENCE_ADMIN_ACCEPT}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields["file"].disabled = True
+            self.fields["file"].required = False
+            self.fields["file"].widget = ExistingAttachmentWidget(
+                "Документ уже сохранён"
+            )
+
+    def clean_file(self):
+        if self.instance and self.instance.pk:
+            return self.instance.file
+
+        uploaded_file = self.cleaned_data.get("file")
+
+        if not is_new_upload(uploaded_file):
+            return uploaded_file
+
+        if has_dangerous_double_extension(uploaded_file.name):
+            raise forms.ValidationError("Имя файла содержит опасное двойное расширение.")
+
+        if uploaded_file.size > settings.PROBLEM_EVIDENCE_MAX_SIZE:
+            raise forms.ValidationError(
+                "Размер файла не должен превышать "
+                f"{settings.PROBLEM_EVIDENCE_MAX_SIZE // 1024 // 1024} МБ."
+            )
+
+        original_client_name = Path(uploaded_file.name).name[:255]
+        extension = get_file_extension(uploaded_file)
+
+        if extension not in EVIDENCE_EXTENSIONS:
+            raise forms.ValidationError("Можно загружать только PDF, JPG, PNG и WebP.")
+
+        if extension == ".pdf":
+            validate_pdf(uploaded_file)
+            uploaded_file.name = build_safe_upload_name(uploaded_file.name, ".pdf")
+            uploaded_file.original_client_name = original_client_name
+            return uploaded_file
+
+        sanitized_file = validate_uploaded_image(uploaded_file, PHOTO_EXTENSIONS)
+        sanitized_file.original_client_name = original_client_name
+
+        return sanitized_file
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        uploaded_file = self.cleaned_data.get("file")
+
+        if is_new_upload(uploaded_file):
+            instance.original_name = getattr(
+                uploaded_file,
+                "original_client_name",
+                Path(uploaded_file.name).name,
+            )[:255]
+            instance.content_type = uploaded_file.content_type
+            instance.file_size = uploaded_file.size
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+
+        return instance
+
+
+def build_attachment_admin_url(request, obj, action):
+    token = make_attachment_token(request, obj, action)
+
+    return reverse(
+        "attachment_access",
+        args=[obj.public_id, action, token],
+    )
 
 
 def build_attachment_admin_links(request, obj, can_view, can_download):
+    if not obj or not getattr(obj, "pk", None):
+        return "Будет доступно после сохранения"
+
     if not request:
         return "Недоступно"
 
     links = []
 
     if can_view(request.user):
-        view_token = make_attachment_token(request, obj, "view")
-        view_url = reverse(
-            "attachment_access",
-            args=[obj.public_id, "view", view_token],
-        )
+        view_url = build_attachment_admin_url(request, obj, "view")
         links.append(
             format_html(
                 '<a href="{}" target="_blank" rel="noopener noreferrer">Открыть</a>',
@@ -53,11 +286,7 @@ def build_attachment_admin_links(request, obj, can_view, can_download):
         )
 
     if can_download(request.user):
-        download_token = make_attachment_token(request, obj, "download")
-        download_url = reverse(
-            "attachment_access",
-            args=[obj.public_id, "download", download_token],
-        )
+        download_url = build_attachment_admin_url(request, obj, "download")
         links.append(format_html('<a href="{}">Скачать</a>', download_url))
 
     if not links:
@@ -70,13 +299,20 @@ def build_attachment_admin_links(request, obj, can_view, can_download):
 # не ходил по отдельным разделам при проверке заявки.
 class ProblemPhotoInline(admin.TabularInline):
     model = ProblemPhoto
+    form = ProblemPhotoAdminForm
+    formset = AttachmentInlineFormSet
     extra = 0
     fields = (
+        "attachment_preview",
         "attachment_links",
+        "image",
+        "file_size_display",
         "uploaded_at",
     )
     readonly_fields = (
+        "attachment_preview",
         "attachment_links",
+        "file_size_display",
         "uploaded_at",
     )
     show_change_link = True
@@ -85,6 +321,29 @@ class ProblemPhotoInline(admin.TabularInline):
         self.request = request
 
         return super().get_formset(request, obj, **kwargs)
+
+    @admin.display(description="Миниатюра")
+    def attachment_preview(self, obj):
+        request = getattr(self, "request", None)
+
+        if not obj or not getattr(obj, "pk", None):
+            return "Появится после сохранения"
+
+        if not request or not can_admin_view_photo(request.user):
+            return "Недостаточно прав"
+
+        view_url = build_attachment_admin_url(request, obj, "view")
+
+        return format_html(
+            (
+                '<a href="{}" target="_blank" rel="noopener noreferrer">'
+                '<img src="{}" alt="Миниатюра фотографии" loading="lazy" '
+                'style="width: 96px; height: 64px; object-fit: cover; '
+                'border-radius: 10px;" /></a>'
+            ),
+            view_url,
+            view_url,
+        )
 
     @admin.display(description="Вложение")
     def attachment_links(self, obj):
@@ -95,19 +354,28 @@ class ProblemPhotoInline(admin.TabularInline):
             can_admin_download_photo,
         )
 
+    @admin.display(description="Размер")
+    def file_size_display(self, obj):
+        return format_file_size(getattr(obj, "file_size", 0))
+
 
 class ProblemEvidenceFileInline(admin.TabularInline):
     model = ProblemEvidenceFile
+    form = ProblemEvidenceFileAdminForm
+    formset = AttachmentInlineFormSet
     extra = 0
     fields = (
         "attachment_links",
+        "file",
         "original_name",
+        "file_size_display",
         "uploaded_at",
     )
 
     readonly_fields = (
         "attachment_links",
         "original_name",
+        "file_size_display",
         "uploaded_at",
     )
     show_change_link = True
@@ -125,6 +393,10 @@ class ProblemEvidenceFileInline(admin.TabularInline):
             can_admin_view_evidence,
             can_admin_download_evidence,
         )
+
+    @admin.display(description="Размер")
+    def file_size_display(self, obj):
+        return format_file_size(getattr(obj, "file_size", 0))
 
 
 # То, как проблемы будут отображаться в админке
@@ -232,6 +504,7 @@ class ProblemAdmin(ProblemAdminBadgesMixin, admin.ModelAdmin):
 # Отдельная страница фотографий в админке, для проверки, что фото реально сохранились
 @admin.register(ProblemPhoto)
 class ProblemPhotoAdmin(admin.ModelAdmin):
+    form = ProblemPhotoAdminForm
     list_display = (
         "problem",
         "attachment_links",
@@ -239,6 +512,7 @@ class ProblemPhotoAdmin(admin.ModelAdmin):
     )
     fields = (
         "problem",
+        "image",
         "attachment_links",
         "public_id",
         "content_type",
@@ -277,6 +551,7 @@ class ProblemPhotoAdmin(admin.ModelAdmin):
 
 @admin.register(ProblemEvidenceFile)
 class ProblemEvidenceFileAdmin(admin.ModelAdmin):
+    form = ProblemEvidenceFileAdminForm
     list_display = (
         "problem",
         "original_name",
@@ -285,6 +560,7 @@ class ProblemEvidenceFileAdmin(admin.ModelAdmin):
     )
     fields = (
         "problem",
+        "file",
         "original_name",
         "attachment_links",
         "public_id",

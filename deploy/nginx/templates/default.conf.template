@@ -27,7 +27,7 @@ server {
         return 404;
     }
 
-    location ~* (^|/)(?:\.env|\.git|\.gitignore|\.dockerignore|Dockerfile|compose\.ya?ml|docker-compose\.ya?ml|.*\.(?:sqlite|sqlite3|db|db-wal|db-shm|bak|backup|old|orig|log|dump|sql|tar|tgz|gz|zip|age|key|pem|pyc|pyo|tmp))$ {
+    location ~* (^|/)(?:\.env|\.git|\.gitignore|\.dockerignore|Dockerfile|compose\.ya?ml|docker-compose\.ya?ml|.*\.(?:sqlite|sqlite3|db|db-wal|db-shm|bak|backup|old|orig|log|dump|sql|tar|tgz|gz|zip|age|key|pem|pyc|pyo|tmp|map))$ {
         return 404;
     }
 
@@ -76,7 +76,7 @@ server {
         return 404;
     }
 
-    location ~* (^|/)(?:\.env|\.git|\.gitignore|\.dockerignore|Dockerfile|compose\.ya?ml|docker-compose\.ya?ml|.*\.(?:sqlite|sqlite3|db|db-wal|db-shm|bak|backup|old|orig|log|dump|sql|tar|tgz|gz|zip|age|key|pem|pyc|pyo|tmp))$ {
+    location ~* (^|/)(?:\.env|\.git|\.gitignore|\.dockerignore|Dockerfile|compose\.ya?ml|docker-compose\.ya?ml|.*\.(?:sqlite|sqlite3|db|db-wal|db-shm|bak|backup|old|orig|log|dump|sql|tar|tgz|gz|zip|age|key|pem|pyc|pyo|tmp|map))$ {
         return 404;
     }
 
@@ -99,6 +99,7 @@ server {
     location /protected-media/ {
         internal;
         alias /var/www/media/;
+        disable_symlinks on from=/var/www/media;
         try_files $uri =404;
         limit_except GET HEAD {
             deny all;

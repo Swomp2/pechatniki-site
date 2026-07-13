@@ -1,3 +1,5 @@
+import logging
+import re
 import time
 import tempfile
 from io import BytesIO
@@ -20,8 +22,14 @@ from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
 
+from config.logging_filters import SensitiveValueFilter
+
 from .forms import ProblemForm, make_form_started_at_token
-from .admin import ProblemAdmin
+from .admin import (
+    ProblemAdmin,
+    ProblemEvidenceFileAdminForm,
+    ProblemPhotoAdminForm,
+)
 from .models import (
     AttachmentAccessAudit,
     Problem,
@@ -29,7 +37,11 @@ from .models import (
     ProblemPhoto,
     ProblemVote,
 )
-from .protected_media import ATTACHMENT_TOKEN_MAX_AGE, make_attachment_token
+from .protected_media import (
+    ATTACHMENT_TOKEN_MAX_AGE,
+    make_attachment_token,
+    make_public_photo_token,
+)
 
 TEST_FIELD_ENCRYPTION_KEYS = [
     "test-key-1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -513,6 +525,21 @@ class PublicPageRenderTests(TestCase):
 
                 self.assertEqual(response.status_code, 200)
 
+    def test_public_pages_include_browser_and_mobile_favicons(self):
+        response = self.client.get(reverse("index"))
+
+        self.assertContains(response, "favicon/heart.ico")
+        self.assertContains(response, "favicon/heart-192.png")
+        self.assertContains(response, "favicon/heart-180.png")
+        self.assertContains(response, 'rel="apple-touch-icon"')
+        self.assertContains(response, 'rel="shortcut icon"')
+
+    def test_root_favicon_redirects_to_static_icon(self):
+        response = self.client.get("/favicon.ico")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertIn("favicon/heart.ico", response["Location"])
+
     def test_percent_encoded_cyrillic_url_renders(self):
         response = self.client.get(reverse("public_problems"))
 
@@ -703,6 +730,30 @@ class ProtectedAttachmentAccessTests(TestCase):
 
         return reverse("attachment_access", args=[attachment.public_id, action, token])
 
+    def make_public_photo_token_for_client(self, photo):
+        session = self.client.session
+
+        if not session.session_key:
+            session.create()
+
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
+        request = RequestFactory().post("/")
+        request.session = session
+
+        return make_public_photo_token(request, photo)
+
+    def extract_public_photo_url(self, response):
+        match = re.search(
+            r'<img[^>]+src="([^"]*/%D0%B2%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F/%D1%84%D0%BE%D1%82%D0%BE/[^"]+)"',
+            response.content.decode(),
+        )
+
+        self.assertIsNotNone(match)
+
+        return match.group(1)
+
     def test_public_html_does_not_expose_media_path_name_or_uuid(self):
         problem = make_problem(
             Problem.Status.SENT,
@@ -714,7 +765,15 @@ class ProtectedAttachmentAccessTests(TestCase):
         response = self.client.get(reverse("public_problems"))
         body = response.content.decode()
 
-        self.assertContains(response, "data-protected-photo")
+        self.assertContains(
+            response,
+            "/%D0%B2%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F/%D1%84%D0%BE%D1%82%D0%BE/",
+        )
+        self.assertNotContains(response, "data-protected-photo")
+        self.assertNotContains(response, "data-photo-token")
+        self.assertNotContains(response, "data-photo-endpoint")
+        self.assertNotRegex(body, r"<img[^>]+data-problem-id")
+        self.assertNotIn("data-photo-position", body)
         self.assertNotIn("/media/", body)
         self.assertNotIn(photo.image.name, body)
         self.assertNotIn(str(photo.public_id), body)
@@ -724,12 +783,9 @@ class ProtectedAttachmentAccessTests(TestCase):
         problem = make_problem(Problem.Status.SENT, is_public=True)
         self.make_photo(problem)
 
-        self.client.get(reverse("public_problems"))
-        response = self.client.post(
-            reverse("fetch_public_problem_photo"),
-            {"problem_id": problem.id, "position": "0"},
-            HTTP_X_REQUESTED_WITH="fetch",
-        )
+        page_response = self.client.get(reverse("public_problems"))
+        photo_url = self.extract_public_photo_url(page_response)
+        response = self.client.get(photo_url)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
@@ -740,12 +796,40 @@ class ProtectedAttachmentAccessTests(TestCase):
 
     def test_private_photo_is_not_available_to_public_photo_fetch(self):
         problem = make_problem(Problem.Status.NEW, is_public=False)
-        self.make_photo(problem)
+        photo = self.make_photo(problem)
+        token = self.make_public_photo_token_for_client(photo)
 
-        response = self.client.post(
-            reverse("fetch_public_problem_photo"),
-            {"problem_id": problem.id, "position": "0"},
-            HTTP_X_REQUESTED_WITH="fetch",
+        response = self.client.get(reverse("public_problem_photo", args=[token]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_public_photo_access_stops_after_problem_is_hidden(self):
+        problem = make_problem(Problem.Status.SENT, is_public=True)
+        self.make_photo(problem)
+        page_response = self.client.get(reverse("public_problems"))
+        photo_url = self.extract_public_photo_url(page_response)
+
+        problem.is_public = False
+        problem.save(update_fields=["is_public"])
+
+        response = self.client.get(photo_url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_public_photo_token_is_bound_to_session(self):
+        problem = make_problem(Problem.Status.SENT, is_public=True)
+        self.make_photo(problem)
+        page_response = self.client.get(reverse("public_problems"))
+        photo_url = self.extract_public_photo_url(page_response)
+        copied_client = self.client_class()
+
+        response = copied_client.get(photo_url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_invalid_public_photo_token_is_rejected(self):
+        response = self.client.get(
+            reverse("public_problem_photo", args=["not-a-valid-token"])
         )
 
         self.assertEqual(response.status_code, 404)
@@ -885,6 +969,15 @@ class ProtectedAttachmentAccessTests(TestCase):
 
 class ProblemAdminTests(TestCase):
     # Регрессия на admin changelist: бейджи должны рендериться в шаблоне Django admin.
+    def setUp(self):
+        self.media_dir = tempfile.TemporaryDirectory()
+        self.override = override_settings(MEDIA_ROOT=self.media_dir.name)
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.media_dir.cleanup()
+
     def test_problem_changelist_renders_with_badges(self):
         user = get_user_model().objects.create_superuser(
             username="admin",
@@ -900,6 +993,9 @@ class ProblemAdminTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "for_admin/css/main.css")
+        self.assertContains(response, "favicon/heart.ico")
+        self.assertContains(response, "favicon/heart-180.png")
+        self.assertContains(response, 'rel="apple-touch-icon"')
         self.assertContains(response, "Публично")
         self.assertContains(response, "Скрыто")
 
@@ -991,6 +1087,227 @@ class ProblemAdminTests(TestCase):
         self.assertFalse(rejected_without_reason.is_public)
         self.assertTrue(sent_problem.is_public)
 
+    def test_problem_change_inline_file_inputs_only_for_new_forms(self):
+        problem = make_problem(Problem.Status.SENT)
+        photo = ProblemPhoto.objects.create(
+            problem=problem,
+            image=make_image_upload("saved-photo.jpg"),
+            content_type="image/jpeg",
+            file_size=123,
+        )
+        evidence_file = ProblemEvidenceFile.objects.create(
+            problem=problem,
+            file=SimpleUploadedFile(
+                "saved-document.pdf",
+                b"%PDF-1.4\n%test\n",
+                content_type="application/pdf",
+            ),
+            original_name="saved-document.pdf",
+            content_type="application/pdf",
+            file_size=19,
+        )
+        user = get_user_model().objects.create_superuser(
+            username="inline-admin",
+            email="inline@example.com",
+            password="password",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("admin:problems_problem_change", args=[problem.id])
+        )
+        body = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertNotIn('name="photos-0-image"', body)
+        self.assertNotIn('name="evidence_files-0-file"', body)
+        self.assertIn('name="photos-__prefix__-image"', body)
+        self.assertIn('name="evidence_files-__prefix__-file"', body)
+        self.assertIn('type="file"', body)
+        self.assertIn("Фотография уже сохранена", body)
+        self.assertIn("Документ уже сохранён", body)
+        self.assertIn("Открыть", body)
+        self.assertIn("image/jpeg,image/png,image/webp", body)
+        self.assertIn("application/pdf", body)
+        self.assertNotIn(photo.image.name, body)
+        self.assertNotIn(evidence_file.file.name, body)
+
+    def test_admin_photo_upload_uses_safe_image_processing(self):
+        problem = make_problem(Problem.Status.SENT)
+        upload = make_image_upload("unsafe name.jpg", size=(256, 128))
+        form = ProblemPhotoAdminForm(
+            data={"problem": problem.id},
+            files={"image": upload},
+        )
+
+        self.assertTrue(form.is_valid(), form.errors.as_data())
+
+        photo = form.save()
+
+        self.assertEqual(photo.problem, problem)
+        self.assertEqual(photo.content_type, "image/jpeg")
+        self.assertGreater(photo.file_size, 0)
+        self.assertTrue(photo.image.name.startswith("problem_photos/"))
+        self.assertNotIn("unsafe name", photo.image.name)
+
+    def test_admin_photo_form_does_not_replace_existing_file(self):
+        problem = make_problem(Problem.Status.SENT)
+        photo = ProblemPhoto.objects.create(
+            problem=problem,
+            image=make_image_upload("original.jpg"),
+            content_type="image/jpeg",
+            file_size=123,
+        )
+        original_name = photo.image.name
+        form = ProblemPhotoAdminForm(
+            data={"problem": problem.id},
+            files={"image": make_image_upload("forged.jpg")},
+            instance=photo,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors.as_data())
+
+        form.save()
+        photo.refresh_from_db()
+
+        self.assertEqual(photo.image.name, original_name)
+
+    def test_admin_photo_upload_rejects_dangerous_double_extension(self):
+        problem = make_problem(Problem.Status.SENT)
+        upload = make_image_upload("payload.svg.jpg")
+        form = ProblemPhotoAdminForm(
+            data={"problem": problem.id},
+            files={"image": upload},
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("image", form.errors)
+
+    def test_admin_evidence_upload_uses_safe_document_processing(self):
+        problem = make_problem(Problem.Status.SENT)
+        upload = SimpleUploadedFile(
+            "resident answer.pdf",
+            b"%PDF-1.4\n%test\n",
+            content_type="application/pdf",
+        )
+        form = ProblemEvidenceFileAdminForm(
+            data={"problem": problem.id},
+            files={"file": upload},
+        )
+
+        self.assertTrue(form.is_valid(), form.errors.as_data())
+
+        evidence_file = form.save()
+
+        self.assertEqual(evidence_file.problem, problem)
+        self.assertEqual(evidence_file.original_name, "resident answer.pdf")
+        self.assertEqual(evidence_file.content_type, "application/pdf")
+        self.assertGreater(evidence_file.file_size, 0)
+        self.assertTrue(evidence_file.file.name.startswith("problem_evidence/"))
+        self.assertNotIn("resident answer", evidence_file.file.name)
+
+    def test_admin_evidence_form_does_not_replace_existing_file(self):
+        problem = make_problem(Problem.Status.SENT)
+        evidence_file = ProblemEvidenceFile.objects.create(
+            problem=problem,
+            file=SimpleUploadedFile(
+                "original.pdf",
+                b"%PDF-1.4\n%test\n",
+                content_type="application/pdf",
+            ),
+            original_name="original.pdf",
+            content_type="application/pdf",
+            file_size=19,
+        )
+        original_name = evidence_file.file.name
+        form = ProblemEvidenceFileAdminForm(
+            data={"problem": problem.id},
+            files={
+                "file": SimpleUploadedFile(
+                    "forged.pdf",
+                    b"%PDF-1.4\n%test\n",
+                    content_type="application/pdf",
+                )
+            },
+            instance=evidence_file,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors.as_data())
+
+        form.save()
+        evidence_file.refresh_from_db()
+
+        self.assertEqual(evidence_file.file.name, original_name)
+
+    def test_admin_evidence_upload_rejects_dangerous_double_extension(self):
+        problem = make_problem(Problem.Status.SENT)
+        upload = SimpleUploadedFile(
+            "payload.js.pdf",
+            b"%PDF-1.4\n%test\n",
+            content_type="application/pdf",
+        )
+        form = ProblemEvidenceFileAdminForm(
+            data={"problem": problem.id},
+            files={"file": upload},
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("file", form.errors)
+
+    def test_problem_admin_can_add_photo_and_document_once_then_hide_inputs(self):
+        problem = make_problem(Problem.Status.SENT)
+        user = get_user_model().objects.create_superuser(
+            username="upload-admin",
+            email="upload@example.com",
+            password="password",
+        )
+        self.client.force_login(user)
+        change_url = reverse("admin:problems_problem_change", args=[problem.id])
+        data = {
+            "title": problem.title,
+            "description": problem.description,
+            "address": problem.address,
+            "category": problem.category,
+            "status": problem.status,
+            "is_public": "on",
+            "rejection_reason": "",
+            "contact_phone": "",
+            "has_prior_attempts": "",
+            "photos-TOTAL_FORMS": "1",
+            "photos-INITIAL_FORMS": "0",
+            "photos-MIN_NUM_FORMS": "0",
+            "photos-MAX_NUM_FORMS": "1000",
+            "photos-0-id": "",
+            "photos-0-image": make_image_upload("admin-photo.jpg"),
+            "evidence_files-TOTAL_FORMS": "1",
+            "evidence_files-INITIAL_FORMS": "0",
+            "evidence_files-MIN_NUM_FORMS": "0",
+            "evidence_files-MAX_NUM_FORMS": "1000",
+            "evidence_files-0-id": "",
+            "evidence_files-0-file": SimpleUploadedFile(
+                "admin-document.pdf",
+                b"%PDF-1.4\n%test\n",
+                content_type="application/pdf",
+            ),
+            "_save": "Сохранить",
+        }
+
+        response = self.client.post(change_url, data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(problem.photos.count(), 1)
+        self.assertEqual(problem.evidence_files.count(), 1)
+
+        response = self.client.get(change_url)
+        body = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('name="photos-0-image"', body)
+        self.assertNotIn('name="evidence_files-0-file"', body)
+        self.assertIn('name="photos-__prefix__-image"', body)
+        self.assertIn('name="evidence_files-__prefix__-file"', body)
+
 
 class ImageOptimizationTests(TestCase):
     @override_settings(
@@ -1062,12 +1379,273 @@ class DeploymentProtectionTests(TestCase):
             "db-shm",
             "backup",
             "scripts",
+            "map",
         ]:
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, nginx_config)
 
         nginx_service = compose_config.split("  nginx:", 1)[1].split("  certbot:", 1)[0]
 
+        self.assertIn("server_tokens off", nginx_config)
+        self.assertIn("autoindex off", nginx_config)
+        self.assertIn("X-Content-Type-Options", nginx_config)
+        self.assertIn("internal;", nginx_config)
+        self.assertIn("disable_symlinks on from=/var/www/media", nginx_config)
+        self.assertIn("/var/www/static:ro", nginx_service)
+        self.assertIn("/var/www/media:ro", nginx_service)
         self.assertNotIn("/app/data", nginx_service)
+        self.assertNotIn("/app/media", nginx_service)
+        self.assertNotIn("/app/staticfiles", nginx_service)
         self.assertIn("*.sqlite", dockerignore)
         self.assertIn("*.db-wal", dockerignore)
+
+    def test_runtime_image_and_compose_are_hardened(self):
+        dockerfile = Path("Dockerfile").read_text()
+        compose_config = Path("docker-compose.yml").read_text()
+        dockerignore = Path(".dockerignore").read_text()
+
+        self.assertNotIn("COPY --chown=app:app . .", dockerfile)
+
+        for copied_path in [
+            "COPY --chown=app:app config ./config",
+            "COPY --chown=app:app problems ./problems",
+            "COPY --chown=app:app static ./static",
+            "COPY --chown=app:app templates ./templates",
+        ]:
+            with self.subTest(copied_path=copied_path):
+                self.assertIn(copied_path, dockerfile)
+
+        for ignored_path in [
+            ".codex/",
+            ".agents/",
+            "deploy/",
+            "scripts/",
+            "env.example",
+            "problems/tests.py",
+        ]:
+            with self.subTest(ignored_path=ignored_path):
+                self.assertIn(ignored_path, dockerignore)
+
+        for service_name in ["web", "nginx", "certbot"]:
+            service_match = re.search(
+                rf"^  {service_name}:\n(?P<body>.*?)(?=^  [\w-]+:|^networks:|\Z)",
+                compose_config,
+                re.MULTILINE | re.DOTALL,
+            )
+            self.assertIsNotNone(service_match)
+            service_block = service_match.group("body")
+
+            with self.subTest(service_name=service_name):
+                self.assertIn("init: true", service_block)
+                self.assertIn("no-new-privileges:true", service_block)
+                self.assertIn("cap_drop:", service_block)
+                self.assertIn("- ALL", service_block)
+
+        certbot_block = compose_config.split("  certbot:", 1)[1].split("networks:", 1)[0]
+
+        self.assertIn("read_only: true", certbot_block)
+        self.assertIn("/var/lib/letsencrypt", certbot_block)
+        self.assertIn("/var/log/letsencrypt", certbot_block)
+
+    def test_backup_restore_rejects_unsafe_tar_members_before_extracting(self):
+        verify_script = Path("scripts/verify-backup.sh").read_text()
+        restore_script = Path("scripts/restore.sh").read_text()
+
+        for script in [verify_script, restore_script]:
+            with self.subTest(script=script[:30]):
+                self.assertIn("validate_tar_archive", script)
+                self.assertIn("member.isdev()", script)
+                self.assertIn("member.issym() or member.islnk()", script)
+                self.assertIn("posixpath.join(posixpath.dirname(normalized_name)", script)
+                self.assertIn("name.startswith(\"/\")", script)
+                self.assertIn("normalized_name.startswith(\"../\")", script)
+                self.assertLess(
+                    script.index("validate_tar_archive \"$TMP_DIR/backup.tar\""),
+                    script.index("tar -C \"$TMP_DIR/payload\" -xf"),
+                )
+
+    def test_logging_filter_redacts_public_photo_tokens(self):
+        for path_prefix in [
+            "/вложения/фото/",
+            (
+                "/%D0%B2%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F"
+                "/%D1%84%D0%BE%D1%82%D0%BE/"
+            ),
+            (
+                "/\\u0432\\u043b\\u043e\\u0436\\u0435\\u043d\\u0438\\u044f"
+                "/\\u0444\\u043e\\u0442\\u043e/"
+            ),
+        ]:
+            with self.subTest(path_prefix=path_prefix):
+                record = logging.LogRecord(
+                    name="django.request",
+                    level=logging.WARNING,
+                    pathname=__file__,
+                    lineno=1,
+                    msg=(
+                        f"Not Found: {path_prefix}"
+                        "eyJwaG90byI6IjEyMyIsInNlc3Npb24iOiJhYmMifQ:1abc:def/"
+                    ),
+                    args=(),
+                    exc_info=None,
+                )
+
+                self.assertTrue(SensitiveValueFilter().filter(record))
+
+                message = record.getMessage()
+
+                self.assertIn(f"{path_prefix}[photo token redacted]", message)
+                self.assertNotIn("eyJwaG90by", message)
+
+    def test_static_settings_use_manifest_storage_for_production(self):
+        settings_source = Path("config/settings.py").read_text()
+
+        self.assertIn("ManifestStaticFilesStorage", settings_source)
+        self.assertIn("STATIC_ROOT", settings_source)
+
+
+class FrontendSourceTests(TestCase):
+    def test_project_css_disables_global_hyphenation(self):
+        css_paths = [
+            Path("static/for_users/css/main.css"),
+            Path("static/for_users/css/main_page.css"),
+            Path("static/for_admin/css/main.css"),
+        ]
+        css = "\n".join(path.read_text() for path in css_paths)
+
+        self.assertNotIn("hyphens: auto", css)
+        self.assertNotIn("word-break: break-all", css)
+        self.assertIn("hyphens: none", css)
+        self.assertIn("overflow-wrap: anywhere", css)
+
+    def test_problem_nav_autoscroll_logic_is_initialized_once(self):
+        html = Path("templates/base.html").read_text()
+        css = Path("static/for_users/css/main_page.css").read_text()
+        script = Path("static/for_users/js/main.js").read_text()
+
+        self.assertIn("data-problem-nav", html)
+        self.assertNotIn("data-problem-nav-track", html)
+        self.assertIn("setupProblemNavAutoscroll", script)
+        self.assertIn("runSetup(setupProblemNavAutoscroll)", script)
+        self.assertIn("requestAnimationFrame", script)
+        self.assertIn("prefers-reduced-motion: reduce", script)
+        self.assertIn("scrollWidth - nav.clientWidth", script)
+        self.assertIn("nav.scrollLeft = animatedScrollLeft", script)
+        self.assertIn("overflow-x: auto", css)
+        self.assertNotIn("track.style.transform", script)
+        self.assertIn("visibilitychange", script)
+        self.assertIn("site:page-loaded", script)
+        self.assertIn("problemNavAutoscrollBound", script)
+        self.assertIn("initialIdleMs", script)
+        self.assertIn("interactionPauseMs = 6000", script)
+        self.assertIn("edgePauseMs = 900", script)
+        self.assertIn("animatedScrollLeft", script)
+        self.assertIn("pauseAfterInteraction", script)
+        self.assertIn("isProgrammaticScroll", script)
+        self.assertIn("mouseenter", script)
+        self.assertIn("mouseleave", script)
+        self.assertIn("focusin", script)
+        self.assertIn("pointerup", script)
+        self.assertIn("pointercancel", script)
+        self.assertIn("IntersectionObserver", script)
+        self.assertIn("motionQuery.addListener", script)
+        self.assertNotIn("pointerenter", script)
+
+    def test_protected_photo_javascript_uses_token_not_media_path(self):
+        script = Path("static/for_users/js/protected_media.js").read_text()
+
+        self.assertNotIn("fetch(", script)
+        self.assertNotIn("createObjectURL", script)
+        self.assertNotIn("revokeObjectURL", script)
+        self.assertNotIn("protectedMedia", script)
+
+    def test_photo_lightbox_allows_browser_pinch_zoom(self):
+        css = Path("static/for_users/css/photo_lightbox.css").read_text()
+        script = Path("static/for_users/js/photo_lightbox.js").read_text()
+
+        self.assertIn("pinch-zoom", css)
+        self.assertIn("@media (pointer: coarse)", css)
+        self.assertIn("touch-action: none", css)
+        self.assertIn("animatePhotoSwitch", script)
+        self.assertIn("resetZoom", script)
+        self.assertIn("handleZoomTouchStart", script)
+        self.assertIn("updatePinchZoom", script)
+        self.assertIn("zoomAroundPoint", script)
+        self.assertIn("handleZoomDoubleClick", script)
+        self.assertIn("handleZoomMouseDown", script)
+        self.assertIn("handleZoomMouseMove", script)
+        self.assertIn("handleZoomMouseUp", script)
+        self.assertIn("is-dragging", script)
+        self.assertIn("cursor: grabbing", css)
+        self.assertIn("generation !== animationGeneration", script)
+        self.assertIn("clearTransformAnimations(activeImage)", script)
+        self.assertIn("updateActiveImageSource(nextSourceImage)", script)
+        self.assertIn("resetZoom();\n    activeIndex = nextIndex;", script)
+        self.assertIn('sourceImage.closest(".problem-card")', script)
+        self.assertIn("activeIndex", script)
+        self.assertNotIn("prepareSourceImage", script)
+        self.assertNotIn("openRequestGeneration", script)
+        self.assertNotIn("showSwitchedPhotoImmediately", script)
+
+    def test_photo_lightbox_switching_uses_single_stable_image(self):
+        script = Path("static/for_users/js/photo_lightbox.js").read_text()
+        switch_block = script[
+            script.index("function switchToPhoto"):
+            script.index("async function animateOpen")
+        ]
+
+        self.assertIn("let activeIndex = 0", script)
+        self.assertIn(
+            "activeIndex === galleryImages.length - 1 ? 0 : activeIndex + 1",
+            script,
+        )
+        self.assertIn(
+            "activeIndex === 0 ? galleryImages.length - 1 : activeIndex - 1",
+            script,
+        )
+        self.assertIn("activeImage.src = sourceImage.currentSrc || sourceImage.src", script)
+        self.assertIn("lightbox.addEventListener(\"dblclick\", handleZoomDoubleClick)", script)
+        self.assertIn("lightbox.addEventListener(\"touchstart\", handleZoomTouchStart", script)
+        self.assertIn("removeInactiveLightboxImages(activeImage)", switch_block)
+        self.assertNotIn("lightbox.append", switch_block)
+        self.assertNotIn("createLightboxImage", switch_block)
+        self.assertNotIn("requestedIndex", script)
+        self.assertNotIn("renderedIndex", script)
+        self.assertEqual(script.count("createLightboxImage("), 2)
+        self.assertEqual(script.count("lightbox.append(activeImage)"), 1)
+
+        problem_card_position = script.index(
+            'const problemCard = sourceImage.closest(".problem-card")'
+        )
+        gallery_position = script.index(
+            'const gallery = sourceImage.closest("[data-lightbox-gallery]")'
+        )
+        self.assertLess(problem_card_position, gallery_position)
+
+    def test_photo_lightbox_zoom_clears_switch_transform_animation(self):
+        script = Path("static/for_users/js/photo_lightbox.js").read_text()
+        switch_block = script[
+            script.index("function switchToPhoto"):
+            script.index("async function animateOpen")
+        ]
+        zoom_block = script[
+            script.index("function handleZoomDoubleClick"):
+            script.index("function clampZoomToViewport")
+        ]
+
+        self.assertIn("function clearTransformAnimations(image)", script)
+        self.assertIn("hasOwnProperty.call(keyframe, \"transform\")", script)
+        self.assertIn("animation.cancel();", script)
+        self.assertIn("clearTransformAnimations(activeImage)", zoom_block)
+        self.assertNotIn("clearTransformAnimations", switch_block)
+        self.assertEqual(script.count("lightbox.addEventListener(\"dblclick\""), 1)
+        self.assertEqual(script.count("handleZoomDoubleClick"), 2)
+
+    def test_favicon_assets_exist_for_desktop_and_mobile_browsers(self):
+        for path in [
+            Path("static/favicon/heart.ico"),
+            Path("static/favicon/heart-180.png"),
+            Path("static/favicon/heart-192.png"),
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(path.exists())

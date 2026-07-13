@@ -55,16 +55,12 @@
 
           {% for photo in problem.photos.all %}
             <img
-              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+              src="{% url 'public_problem_photo' photo.public_access_token %}"
               alt="Фото проблемы"
               width="280"
               height="190"
               loading="lazy"
               decoding="async"
-              data-protected-photo
-              data-photo-endpoint="{% url 'fetch_public_problem_photo' %}"
-              data-problem-id="{{ problem.id }}"
-              data-photo-position="{{ forloop.counter0 }}"
               data-lightbox-image>
           {% endfor %}
         </article>

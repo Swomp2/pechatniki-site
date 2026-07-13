@@ -18,24 +18,21 @@ Including another URLconf
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponsePermanentRedirect
 from django.urls import include, path
-from django.views.generic import RedirectView
 
 
 def health_check(request):
     return HttpResponse("ok\n", content_type="text/plain")
 
 
+def favicon_redirect(request):
+    return HttpResponsePermanentRedirect(staticfiles_storage.url("favicon/heart.ico"))
+
+
 urlpatterns = [
     path("health/", health_check, name="health_check"),
     path(f"{settings.ADMIN_URL}/", admin.site.urls),
     path("", include("problems.urls")),
-    path(
-        "favicon.ico",
-        RedirectView.as_view(
-            url=staticfiles_storage.url("favicon/heart.ico"),
-            permanent=True,
-        ),
-    ),
+    path("favicon.ico", favicon_redirect),
 ]

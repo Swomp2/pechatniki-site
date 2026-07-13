@@ -4,6 +4,7 @@ services:
       context: .
     image: np-site:production
     restart: unless-stopped
+    init: true
     env_file:
       - .env
     environment:
@@ -47,6 +48,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    init: true
     depends_on:
       web:
         condition: service_healthy
@@ -98,6 +100,12 @@ services:
   certbot:
     image: certbot/certbot:latest
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+      - /var/lib/letsencrypt:rw,noexec,nosuid,nodev,size=16m
+      - /var/log/letsencrypt:rw,noexec,nosuid,nodev,size=16m
     security_opt:
       - no-new-privileges:true
     cap_drop:

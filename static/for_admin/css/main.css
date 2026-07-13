@@ -160,6 +160,11 @@ html[data-theme="auto"] {
 html,
 body {
   min-height: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
   background: var(--nl-admin-bg);
 }
 
@@ -173,6 +178,24 @@ body {
     var(--nl-admin-bg);
   color: var(--nl-admin-text);
   font-family: var(--nl-admin-font-body);
+}
+
+/* Админка наследует общий запрет переносов: текст должен переноситься между
+   словами, а не словарными дефисами, чтобы страницы выглядели одинаково. */
+:where(#container, #content, #header, table, th, td, label, a, button) {
+  overflow-wrap: normal;
+  word-break: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+}
+
+:where(pre, code, .help, .errornote, .messagelist, .file-upload a) {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
 }
 
 a:link,

@@ -1,4 +1,5 @@
 import mimetypes
+import uuid
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
@@ -11,7 +12,8 @@ from django.utils.text import get_valid_filename
 from .models import AttachmentAccessAudit, ProblemEvidenceFile, ProblemPhoto
 
 
-ATTACHMENT_TOKEN_SALT = "problems.protected_media.attachment"
+ATTACHMENT_TOKEN_SALT = "problems.protected_media.attachment"  # nosec B105
+PUBLIC_PHOTO_TOKEN_SALT = "problems.protected_media.public_photo"  # nosec B105
 ATTACHMENT_TOKEN_MAX_AGE = 60
 
 PHOTO_VIEW_PERMISSION = "problems.view_private_problem_photo"
@@ -49,6 +51,43 @@ def make_attachment_token(request, attachment, action):
         },
         salt=ATTACHMENT_TOKEN_SALT,
     )
+
+
+def make_public_photo_token(request, photo):
+    session_key = ensure_session_key(request)
+
+    # Публичная страница получает только подписанный логический идентификатор.
+    # Физический путь остаётся в БД/storage и проверяется заново при каждом запросе.
+    return signing.dumps(
+        {
+            "photo": str(photo.public_id),
+            "problem": photo.problem_id,
+            "session": session_key,
+        },
+        salt=PUBLIC_PHOTO_TOKEN_SALT,
+    )
+
+
+def verify_public_photo_token(request, token):
+    try:
+        payload = signing.loads(
+            token,
+            salt=PUBLIC_PHOTO_TOKEN_SALT,
+            max_age=settings.PUBLIC_PHOTO_TOKEN_MAX_AGE,
+        )
+    except signing.BadSignature as exc:
+        raise Http404("Фото недоступно") from exc
+
+    if payload.get("session") != request.session.session_key:
+        raise Http404("Фото недоступно")
+
+    try:
+        photo_public_id = uuid.UUID(str(payload.get("photo")))
+        problem_id = int(payload.get("problem"))
+    except (TypeError, ValueError) as exc:
+        raise Http404("Фото недоступно") from exc
+
+    return photo_public_id, problem_id
 
 
 def verify_attachment_token(request, attachment, action, token):

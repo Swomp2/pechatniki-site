@@ -1,7 +1,16 @@
 document.addEventListener("DOMContentLoaded", function () {
-  setupThemeToggle();
-  setupLogoContactMenu();
+  runSetup(setupProblemNavAutoscroll);
+  runSetup(setupThemeToggle);
+  runSetup(setupLogoContactMenu);
 });
+
+function runSetup(setup) {
+  try {
+    setup();
+  } catch (error) {
+    console.error("Не удалось запустить модуль страницы:", error);
+  }
+}
 
 // Тема хранится на <html data-theme="...">: CSS мгновенно подхватывает
 // цвета, фон и нужный вариант логотипа без перерисовки всего DOM.
@@ -321,4 +330,385 @@ function setupLogoContactMenu() {
       closeLogoMenu();
     }
   }
+}
+
+function setupProblemNavAutoscroll() {
+  const nav = document.querySelector("[data-problem-nav]");
+
+  if (!nav || nav.dataset.problemNavAutoscrollBound === "true") {
+    return;
+  }
+
+  nav.dataset.problemNavAutoscrollBound = "true";
+
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const initialIdleMs = 450;
+  const edgePauseMs = 900;
+  const interactionPauseMs = 6000;
+  const scrollSpeed = 48;
+
+  let maxScrollLeft = 0;
+  let animatedScrollLeft = 0;
+  let direction = 1;
+  let animationFrame = 0;
+  let resumeTimer = 0;
+  let edgePauseTimer = 0;
+  let resizeFrame = 0;
+  let programmaticScrollTimer = 0;
+  let lastFrameTime = 0;
+  let isOverflowing = false;
+  let isPointerDown = false;
+  let isPointerInside = false;
+  let isFocusInside = false;
+  let isInViewport = true;
+  let isProgrammaticScroll = false;
+
+  // Предыдущие варианты двигали внутренние обёртки и ломали ручную прокрутку.
+  // Здесь единственная движущаяся величина - scrollLeft самого .site-nav.
+  function measureOverflow() {
+    maxScrollLeft = Math.max(0, nav.scrollWidth - nav.clientWidth);
+    isOverflowing = maxScrollLeft > 1.5;
+    animatedScrollLeft = clampAutoscrollValue(nav.scrollLeft);
+    nav.scrollLeft = animatedScrollLeft;
+    nav.dataset.autoscroll =
+      isOverflowing && !motionQuery.matches ? "active" : "idle";
+
+    if (!isOverflowing) {
+      setNavScrollLeft(0);
+      stopAutoscroll();
+      return;
+    }
+
+    updateDirectionFromPosition();
+
+    if (!canScheduleAutoscroll()) {
+      stopAutoscroll();
+      return;
+    }
+
+    scheduleAutoscroll(initialIdleMs);
+  }
+
+  function canScheduleAutoscroll() {
+    return (
+      isOverflowing &&
+      !document.hidden &&
+      !motionQuery.matches &&
+      isInViewport &&
+      !hasHeldInteraction()
+    );
+  }
+
+  function startAutoscroll() {
+    window.clearTimeout(resumeTimer);
+    resumeTimer = 0;
+
+    if (animationFrame || !canScheduleAutoscroll() || edgePauseTimer) {
+      return;
+    }
+
+    lastFrameTime = 0;
+    animationFrame = window.requestAnimationFrame(step);
+  }
+
+  function stopAutoscroll() {
+    if (!animationFrame) {
+      return;
+    }
+
+    window.cancelAnimationFrame(animationFrame);
+    animationFrame = 0;
+    lastFrameTime = 0;
+  }
+
+  function step(timestamp) {
+    animationFrame = 0;
+
+    if (!canScheduleAutoscroll()) {
+      return;
+    }
+
+    if (!lastFrameTime) {
+      lastFrameTime = timestamp;
+      animationFrame = window.requestAnimationFrame(step);
+      return;
+    }
+
+    const deltaSeconds = Math.min((timestamp - lastFrameTime) / 1000, 0.08);
+    const nextScrollLeft =
+      animatedScrollLeft + direction * scrollSpeed * deltaSeconds;
+
+    lastFrameTime = timestamp;
+
+    if (nextScrollLeft >= maxScrollLeft) {
+      setNavScrollLeft(maxScrollLeft);
+      direction = -1;
+      pauseAtEdge();
+      return;
+    }
+
+    if (nextScrollLeft <= 0) {
+      setNavScrollLeft(0);
+      direction = 1;
+      pauseAtEdge();
+      return;
+    }
+
+    setNavScrollLeft(nextScrollLeft);
+    animationFrame = window.requestAnimationFrame(step);
+  }
+
+  function setNavScrollLeft(value) {
+    animatedScrollLeft = clampAutoscrollValue(value);
+    isProgrammaticScroll = true;
+    nav.scrollLeft = animatedScrollLeft;
+    window.clearTimeout(programmaticScrollTimer);
+    programmaticScrollTimer = window.setTimeout(function () {
+      isProgrammaticScroll = false;
+    }, 120);
+  }
+
+  function clampAutoscrollValue(value) {
+    return Math.min(maxScrollLeft, Math.max(0, value));
+  }
+
+  function pauseAtEdge() {
+    stopAutoscroll();
+    window.clearTimeout(edgePauseTimer);
+
+    // У границ делаем спокойную паузу и продолжаем движение в обратную сторону,
+    // без резкого перескока как у бегущей строки.
+    edgePauseTimer = window.setTimeout(function () {
+      edgePauseTimer = 0;
+      startAutoscroll();
+    }, edgePauseMs);
+  }
+
+  function holdAutoscroll() {
+    stopAutoscroll();
+    window.clearTimeout(edgePauseTimer);
+    window.clearTimeout(resumeTimer);
+    edgePauseTimer = 0;
+    resumeTimer = 0;
+    animatedScrollLeft = clampAutoscrollValue(nav.scrollLeft);
+    updateDirectionFromPosition();
+  }
+
+  function pauseAfterInteraction() {
+    holdAutoscroll();
+
+    if (!hasHeldInteraction()) {
+      scheduleAutoscroll(interactionPauseMs, { restart: true });
+    }
+  }
+
+  function scheduleAutoscroll(delay, options = {}) {
+    if (!canScheduleAutoscroll()) {
+      return;
+    }
+
+    if (resumeTimer && !options.restart) {
+      return;
+    }
+
+    stopAutoscroll();
+    window.clearTimeout(edgePauseTimer);
+    window.clearTimeout(resumeTimer);
+    edgePauseTimer = 0;
+
+    // Один resumeTimer и один requestAnimationFrame-цикл: повторные клики только
+    // перезапускают паузу, но не ускоряют меню несколькими параллельными циклами.
+    resumeTimer = window.setTimeout(function () {
+      resumeTimer = 0;
+      updateDirectionFromPosition();
+      startAutoscroll();
+    }, delay);
+  }
+
+  function hasHeldInteraction() {
+    return isPointerDown || isPointerInside || isFocusInside;
+  }
+
+  function updateDirectionFromPosition() {
+    if (animatedScrollLeft <= 1) {
+      direction = 1;
+    } else if (animatedScrollLeft >= maxScrollLeft - 1) {
+      direction = -1;
+    }
+  }
+
+  function revealFocusedLink(event) {
+    const link = event.target.closest(".site-nav a");
+
+    if (!link) {
+      return;
+    }
+
+    link.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: motionQuery.matches ? "auto" : "smooth",
+    });
+  }
+
+  function queueMeasure() {
+    if (resizeFrame) {
+      return;
+    }
+
+    // ResizeObserver, смена темы и загрузка шрифтов могут менять ширины пунктов.
+    // Пересчёт откладываем в кадр, чтобы не читать layout несколько раз подряд.
+    resizeFrame = window.requestAnimationFrame(function () {
+      resizeFrame = 0;
+      measureOverflow();
+    });
+  }
+
+  nav.addEventListener("mouseenter", function () {
+    isPointerInside = true;
+    holdAutoscroll();
+  });
+
+  nav.addEventListener("mouseleave", function () {
+    isPointerInside = false;
+    pauseAfterInteraction();
+  });
+
+  if ("PointerEvent" in window) {
+    nav.addEventListener("pointerdown", function () {
+      isPointerDown = true;
+      holdAutoscroll();
+    });
+
+    nav.addEventListener("pointerup", function () {
+      isPointerDown = false;
+      pauseAfterInteraction();
+    });
+
+    nav.addEventListener("pointercancel", function () {
+      isPointerDown = false;
+      pauseAfterInteraction();
+    });
+  } else {
+    nav.addEventListener("mousedown", function () {
+      isPointerDown = true;
+      holdAutoscroll();
+    });
+
+    nav.addEventListener("mouseup", function () {
+      isPointerDown = false;
+      pauseAfterInteraction();
+    });
+
+    nav.addEventListener(
+      "touchstart",
+      function () {
+        isPointerDown = true;
+        holdAutoscroll();
+      },
+      { passive: true },
+    );
+
+    nav.addEventListener(
+      "touchend",
+      function () {
+        isPointerDown = false;
+        pauseAfterInteraction();
+      },
+      { passive: true },
+    );
+
+    nav.addEventListener(
+      "touchcancel",
+      function () {
+        isPointerDown = false;
+        pauseAfterInteraction();
+      },
+      { passive: true },
+    );
+  }
+
+  nav.addEventListener("click", pauseAfterInteraction);
+  nav.addEventListener("wheel", pauseAfterInteraction, { passive: true });
+
+  nav.addEventListener("focusin", function (event) {
+    isFocusInside = true;
+    holdAutoscroll();
+    revealFocusedLink(event);
+  });
+
+  nav.addEventListener("focusout", function () {
+    window.setTimeout(function () {
+      isFocusInside = nav.contains(document.activeElement);
+
+      if (!isFocusInside) {
+        pauseAfterInteraction();
+      }
+    }, 0);
+  });
+
+  nav.addEventListener("scroll", function () {
+    if (isProgrammaticScroll) {
+      return;
+    }
+
+    animatedScrollLeft = clampAutoscrollValue(nav.scrollLeft);
+    updateDirectionFromPosition();
+    pauseAfterInteraction();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      stopAutoscroll();
+      return;
+    }
+
+    queueMeasure();
+  });
+
+  document.addEventListener("site:page-loaded", queueMeasure);
+  window.addEventListener("resize", queueMeasure);
+  window.addEventListener("orientationchange", queueMeasure);
+  if (motionQuery.addEventListener) {
+    motionQuery.addEventListener("change", queueMeasure);
+  } else if (motionQuery.addListener) {
+    motionQuery.addListener(queueMeasure);
+  }
+
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(queueMeasure).catch(function () {
+      queueMeasure();
+    });
+  }
+
+  if ("ResizeObserver" in window) {
+    const resizeObserver = new ResizeObserver(queueMeasure);
+
+    resizeObserver.observe(nav);
+    resizeObserver.observe(nav.parentElement || nav);
+  }
+
+  if ("IntersectionObserver" in window) {
+    const intersectionObserver = new IntersectionObserver(function (entries) {
+      isInViewport = entries.some(function (entry) {
+        return entry.isIntersecting;
+      });
+
+      if (!isInViewport) {
+        stopAutoscroll();
+        return;
+      }
+
+      queueMeasure();
+    });
+
+    intersectionObserver.observe(nav);
+  }
+
+  new MutationObserver(queueMeasure).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "class"],
+  });
+
+  measureOverflow();
 }

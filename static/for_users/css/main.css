@@ -259,7 +259,9 @@ html[data-theme="dark"] {
 html {
   min-height: 100%;
   scroll-behavior: smooth;
-  hyphens: auto;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
   background: var(--page-background);
 }
 
@@ -271,21 +273,33 @@ body {
   line-height: 1.55;
   color: var(--color-text);
   overflow-x: hidden;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   word-break: normal;
-  hyphens: auto;
-  hyphenate-character: "-";
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
   background: var(--page-background);
 }
 
-/* Длинные русские слова получают словарные переносы с дефисом, а совсем
-   непробельные строки всё равно не вылезают за экран. */
+/* Словарные переносы отключены намеренно: заголовки и обычный русский текст
+   не должны разрываться по слогам на разных браузерах и ширинах экрана. */
 :where(h1, h2, h3, h4, h5, h6, p, li, a, button, label, strong, small, span) {
-  overflow-wrap: break-word;
-  word-wrap: break-word;
+  overflow-wrap: normal;
+  word-wrap: normal;
   word-break: normal;
-  hyphens: auto;
-  hyphenate-character: "-";
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+}
+
+/* Технические строки и пользовательские значения могут быть непрерывными:
+   им разрешаем аварийный перенос только чтобы не ломать мобильную вёрстку. */
+:where(pre, code, kbd, samp, input, textarea, .errorlist li, .form-warning) {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
 }
 
 img,

@@ -28,7 +28,11 @@ RUN groupadd --system --gid 10001 app \
     && chown -R app:app /app /tmp
 
 COPY --from=builder --chown=app:app /opt/venv /opt/venv
-COPY --chown=app:app . .
+COPY --chown=app:app manage.py entrypoint.sh ./
+COPY --chown=app:app config ./config
+COPY --chown=app:app problems ./problems
+COPY --chown=app:app static ./static
+COPY --chown=app:app templates ./templates
 RUN chmod 0755 /app/entrypoint.sh
 
 USER app:app

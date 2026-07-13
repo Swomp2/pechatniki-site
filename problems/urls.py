@@ -1,6 +1,4 @@
-from django.conf import settings
-from django.contrib import admin
-from django.urls import include, path
+from django.urls import path
 
 from . import views
 
@@ -22,6 +20,11 @@ urlpatterns = [
         "вложения/фото/получить/",
         views.fetch_public_problem_photo,
         name="fetch_public_problem_photo",
+    ),
+    path(
+        "вложения/фото/<path:token>/",
+        views.public_problem_photo,
+        name="public_problem_photo",
     ),
     path(
         "вложения/<uuid:public_id>/<str:action>/<path:token>/",

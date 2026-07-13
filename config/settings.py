@@ -63,9 +63,10 @@ if not SECRET_KEY:
     # Локальный fallback нужен только для удобного dev-запуска.
     # В production без явного секрета приложение не стартует.
     if DEBUG:
+        # Local DEBUG-only fallback; production raises without DJANGO_SECRET_KEY.
         SECRET_KEY = (
             "local-development-secret-key-change-me-before-production-np-pechatniki"
-        )
+        )  # nosec B105
     else:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY is required in production.")
 
@@ -177,6 +178,22 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        # В production collectstatic пишет хешированные имена ресурсов и
+        # переписывает CSS url(...), чтобы публичные URL были логическими
+        # адресами собранной статики, а не путями исходного проекта.
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
+            if not DEBUG
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
+    },
+}
 
 MEDIA_URL = "/media/"
 # MEDIA_ROOT должен быть абсолютным и предсказуемым для nginx/Docker volume.
@@ -291,6 +308,10 @@ if not PROBLEM_VOTER_HMAC_KEY:
 # чтобы локальный runserver не терял изображения.
 PROTECTED_MEDIA_URL = "/protected-media/"
 PROTECTED_MEDIA_USE_X_ACCEL = get_bool_env("PROTECTED_MEDIA_USE_X_ACCEL", not DEBUG)
+PUBLIC_PHOTO_TOKEN_MAX_AGE = get_int_env(
+    "PUBLIC_PHOTO_TOKEN_MAX_AGE",
+    30 * 60,
+)
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = get_int_env(
     "DJANGO_FILE_UPLOAD_MAX_MEMORY_SIZE",

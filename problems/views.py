@@ -28,9 +28,11 @@ from .protected_media import (
     get_attachment_by_public_id,
     get_content_type,
     make_protected_file_response,
+    make_public_photo_token,
     record_attachment_access,
     sanitize_download_name,
     verify_attachment_token,
+    verify_public_photo_token,
 )
 from .voters import get_or_create_voter_identity, set_voter_cookie
 
@@ -45,6 +47,14 @@ def paginate_problems(request, queryset):
     # это защищает и интерфейс, и количество загружаемых фотографий.
     paginator = Paginator(queryset, settings.PROBLEM_LIST_PAGE_SIZE)
     return paginator.get_page(request.GET.get("page"))
+
+
+def attach_public_photo_tokens(request, page_obj):
+    # Шаблоны не получают FieldFile.url, pk фотографии или путь в MEDIA_ROOT.
+    # Токен привязан к текущей session, а view всё равно перепроверяет статус.
+    for problem in page_obj.object_list:
+        for photo in problem.photos.all():
+            photo.public_access_token = make_public_photo_token(request, photo)
 
 
 def get_vote_rate_limit_key(problem_id):
@@ -257,6 +267,7 @@ def resolved_problems(request):
         .prefetch_related("photos")
     )
     page_obj = paginate_problems(request, problems_queryset)
+    attach_public_photo_tokens(request, page_obj)
 
     return render(
         request,
@@ -279,6 +290,7 @@ def public_problems(request):
         .order_by("-votes_count", "created_at")
     )
     page_obj = paginate_problems(request, problems_queryset)
+    attach_public_photo_tokens(request, page_obj)
 
     page_problem_ids = [problem.id for problem in page_obj.object_list]
     # Список нужен только для отрисовки aria-pressed на кнопках голосования.
@@ -323,6 +335,7 @@ def rejected_problems(request):
         .order_by("-created_at")
     )
     page_obj = paginate_problems(request, problems_queryset)
+    attach_public_photo_tokens(request, page_obj)
 
     return render(
         request,
@@ -488,35 +501,28 @@ def upvote_problem(request, problem_id):
     return with_voter_cookie(redirect_to_problem(problem.id))
 
 
-def fetch_public_problem_photo(request):
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-
+def get_public_problem_photo_from_token(request, token):
     ensure_session_key(request)
 
-    try:
-        problem_id = int(request.POST.get("problem_id", ""))
-        position = int(request.POST.get("position", ""))
-    except (TypeError, ValueError) as exc:
-        raise Http404("Фото недоступно") from exc
-
-    if position < 0:
-        raise Http404("Фото недоступно")
+    photo_public_id, problem_id = verify_public_photo_token(request, token)
 
     visible_problem_filter = Q(
         problem__status__in=ACTIVE_PROBLEM_STATUSES + [Problem.Status.RESOLVED]
     ) | Q(problem__status=Problem.Status.REJECTED, problem__rejection_reason__gt="")
-    photos = ProblemPhoto.objects.filter(
-        visible_problem_filter,
-        problem_id=problem_id,
-        problem__is_public=True,
-    ).order_by("uploaded_at", "id")
-
     try:
-        photo = photos[position]
-    except IndexError as exc:
+        photo = ProblemPhoto.objects.select_related("problem").get(
+            visible_problem_filter,
+            public_id=photo_public_id,
+            problem_id=problem_id,
+            problem__is_public=True,
+        )
+    except ProblemPhoto.DoesNotExist as exc:
         raise Http404("Фото недоступно") from exc
 
+    return photo
+
+
+def make_public_problem_photo_response(photo):
     content_type = get_content_type(photo.image, photo.content_type)
     extension = Path(photo.image.name).suffix.lower() or ".jpg"
 
@@ -525,6 +531,27 @@ def fetch_public_problem_photo(request):
         content_type,
         f"problem-photo-{photo.public_id}{extension}",
         inline=True,
+    )
+
+
+def public_problem_photo(request, token):
+    if request.method not in {"GET", "HEAD"}:
+        return HttpResponseNotAllowed(["GET", "HEAD"])
+
+    return make_public_problem_photo_response(
+        get_public_problem_photo_from_token(request, token)
+    )
+
+
+def fetch_public_problem_photo(request):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    return make_public_problem_photo_response(
+        get_public_problem_photo_from_token(
+            request,
+            request.POST.get("token", ""),
+        )
     )
 
 

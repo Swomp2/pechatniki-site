@@ -3,6 +3,33 @@
 
 {% block title %}{{ title }} | {{ site_title|default:_("Django site admin") }}{% endblock %}
 
+{% block extrahead %}
+  {{ block.super }}
+  <link
+    rel="icon"
+    href="{% static 'favicon/heart.ico' %}"
+    sizes="any"
+    type="image/x-icon"
+  />
+  <link
+    rel="shortcut icon"
+    href="{% static 'favicon/heart.ico' %}"
+    type="image/x-icon"
+  />
+  <link
+    rel="icon"
+    href="{% static 'favicon/heart-192.png' %}"
+    sizes="192x192"
+    type="image/png"
+  />
+  <link
+    rel="apple-touch-icon"
+    href="{% static 'favicon/heart-180.png' %}"
+    sizes="180x180"
+  />
+  <meta name="theme-color" content="#47c2c0" />
+{% endblock %}
+
 {% block extrastyle %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'for_admin/css/main.css' %}" />

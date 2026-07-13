@@ -22,7 +22,7 @@ html.photo-lightbox-lock {
   opacity: 0;
   cursor: zoom-out;
   backdrop-filter: blur(8px) saturate(0.9);
-  touch-action: none;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 /* Изображение позиционируется JS-ом через top/left/width/height:
@@ -40,9 +40,18 @@ html.photo-lightbox-lock {
     0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
   object-fit: contain;
   cursor: default;
+  touch-action: pan-x pan-y pinch-zoom;
   user-select: none;
   -webkit-user-drag: none;
   will-change: top, left, width, height, border-radius, opacity, transform;
+}
+
+.photo-lightbox__image.is-zoomed {
+  cursor: grab;
+}
+
+.photo-lightbox__image.is-zoomed.is-dragging {
+  cursor: grabbing;
 }
 
 /* Кнопки выше изображения и затемнения, чтобы оставаться кликабельными
@@ -154,6 +163,12 @@ html.photo-lightbox-lock {
   .photo-lightbox,
   .photo-lightbox__image {
     transition: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .photo-lightbox__image {
+    touch-action: none;
   }
 }
 

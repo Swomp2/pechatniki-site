@@ -219,6 +219,17 @@
   font-size: 16px;
 }
 
+/* Пользователь может вставить длинный URL или номер обращения без пробелов.
+   Разрешаем аварийный перенос только внутри карточек, не включая hyphenation. */
+.page--problem-list .problem-card h2,
+.page--problem-list .problem-card > p {
+  overflow-wrap: break-word;
+  word-break: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+}
+
 .page--problem-list .problem-card > p:last-child {
   margin-bottom: 0;
 }

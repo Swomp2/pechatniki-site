@@ -15,6 +15,8 @@ wheels/
 htmlcov/
 .vscode/
 .idea/
+.codex/
+.agents/
 *.swp
 *.swo
 .DS_Store
@@ -59,4 +61,8 @@ Dockerfile
 docker-compose*.yml
 docker-compose*.yaml
 README*
+LICENSE
+env.example
+deploy/
+scripts/
 problems/tests.py

@@ -350,8 +350,10 @@
   letter-spacing: -0.04em;
   text-align: center;
   white-space: normal;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  overflow-wrap: normal;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
 }
 
 /* =========================
@@ -539,7 +541,16 @@ html[data-theme="dark"] .theme-toggle__icon {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-page) 42%, transparent);
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: auto;
+  scroll-padding-inline: 6px;
   scrollbar-width: thin;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.site-nav[data-autoscroll="active"] {
+  will-change: scroll-position;
 }
 
 .site-nav a {

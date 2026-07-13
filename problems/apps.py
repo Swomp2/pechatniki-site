@@ -6,4 +6,4 @@ class ProblemsConfig(AppConfig):
     name = "problems"
 
     def ready(self):
-        import problems.signals
+        import problems.signals  # noqa: F401

@@ -13,6 +13,8 @@ wheels/
 htmlcov/
 .vscode/
 .idea/
+.codex/
+.agents/
 *.swp
 *.swo
 .DS_Store
