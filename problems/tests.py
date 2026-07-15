@@ -1459,6 +1459,7 @@ class DeploymentProtectionTests(TestCase):
         nginx_config = Path("deploy/nginx/templates/default.conf.template").read_text()
         compose_config = Path("docker-compose.yml").read_text()
         dockerignore = Path(".dockerignore").read_text()
+        nginx_http_preamble = nginx_config.split("upstream django_app", 1)[0]
 
         for pattern in [
             ".env",
@@ -1476,6 +1477,8 @@ class DeploymentProtectionTests(TestCase):
         nginx_service = compose_config.split("  nginx:", 1)[1].split("  certbot:", 1)[0]
 
         self.assertIn("server_tokens off", nginx_config)
+        self.assertNotIn("sendfile on;", nginx_http_preamble)
+        self.assertNotIn("keepalive_timeout", nginx_http_preamble)
         self.assertIn("autoindex off", nginx_config)
         self.assertIn("X-Content-Type-Options", nginx_config)
         self.assertIn("internal;", nginx_config)
@@ -1517,6 +1520,8 @@ class DeploymentProtectionTests(TestCase):
         compose_config = Path("docker-compose.yml").read_text()
 
         self.assertNotIn("--access-logfile", dockerfile)
+        self.assertIn("--no-control-socket", dockerfile)
+        self.assertIn("--no-control-socket", compose_config)
         self.assertNotIn("--access-logfile", compose_config)
         self.assertIn("--error-logfile", dockerfile)
         self.assertIn("--error-logfile", compose_config)
