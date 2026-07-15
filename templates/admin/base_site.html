@@ -7,27 +7,48 @@
   {{ block.super }}
   <link
     rel="icon"
-    href="{% static 'favicon/heart.ico' %}"
+    href="/favicon.ico"
     sizes="any"
     type="image/x-icon"
   />
   <link
     rel="shortcut icon"
-    href="{% static 'favicon/heart.ico' %}"
+    href="/favicon.ico"
     type="image/x-icon"
   />
   <link
     rel="icon"
-    href="{% static 'favicon/heart-192.png' %}"
-    sizes="192x192"
+    href="{% static 'favicon/favicon-32x32.png' %}"
+    sizes="32x32"
+    type="image/png"
+  />
+  <link
+    rel="icon"
+    href="{% static 'favicon/favicon-16x16.png' %}"
+    sizes="16x16"
     type="image/png"
   />
   <link
     rel="apple-touch-icon"
-    href="{% static 'favicon/heart-180.png' %}"
+    href="{% static 'favicon/apple-touch-icon.png' %}"
     sizes="180x180"
   />
+  <link rel="manifest" href="/site.webmanifest" />
   <meta name="theme-color" content="#47c2c0" />
+  <link
+    rel="preload"
+    href="{% static 'fonts/Golos/GolosText-VariableFont_wght.woff2' %}"
+    as="font"
+    type="font/woff2"
+    crossorigin
+  />
+  <link
+    rel="preload"
+    href="{% static 'fonts/Unbounded/Unbounded-VariableFont_wght.woff2' %}"
+    as="font"
+    type="font/woff2"
+    crossorigin
+  />
 {% endblock %}
 
 {% block extrastyle %}

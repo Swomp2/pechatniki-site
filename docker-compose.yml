@@ -4,6 +4,7 @@ services:
       context: .
     image: np-site:production
     restart: unless-stopped
+    stop_grace_period: 45s
     init: true
     env_file:
       - .env
@@ -20,7 +21,10 @@ services:
     cap_drop:
       - ALL
     pids_limit: 256
+    mem_limit: ${WEB_MEMORY_LIMIT:-512m}
+    cpus: ${WEB_CPU_LIMIT:-1.0}
     logging:
+      driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
@@ -44,10 +48,38 @@ services:
       start_period: 30s
     networks:
       - backend
+    command:
+      [
+        "gunicorn",
+        "config.wsgi:application",
+        "--bind",
+        "0.0.0.0:8000",
+        "--worker-class",
+        "gthread",
+        "--workers",
+        "${GUNICORN_WORKERS:-2}",
+        "--threads",
+        "${GUNICORN_THREADS:-2}",
+        "--timeout",
+        "60",
+        "--graceful-timeout",
+        "30",
+        "--keep-alive",
+        "5",
+        "--max-requests",
+        "1000",
+        "--max-requests-jitter",
+        "100",
+        "--worker-tmp-dir",
+        "/tmp",
+        "--error-logfile",
+        "-",
+      ]
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.31.2-alpine
     restart: unless-stopped
+    stop_grace_period: 15s
     init: true
     depends_on:
       web:
@@ -76,14 +108,17 @@ services:
       - SETGID
       - CHOWN
     pids_limit: 128
+    mem_limit: ${NGINX_MEMORY_LIMIT:-256m}
+    cpus: ${NGINX_CPU_LIMIT:-0.5}
     logging:
+      driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
     volumes:
       - ./deploy/nginx/templates:/etc/nginx/templates:ro
-      - ${NP_SITE_ROOT:-/srv/np-site}/staticfiles:/var/www/static:ro
-      - ${NP_SITE_ROOT:-/srv/np-site}/media:/var/www/media:ro
+      - ${NP_SITE_ROOT:-/srv/np-site}/staticfiles:/srv/compiled-static:ro
+      - ${NP_SITE_ROOT:-/srv/np-site}/media:/srv/protected-media:ro
       - ${NP_SITE_ROOT:-/srv/np-site}/certbot/www:/var/www/certbot:ro
       - ${NP_SITE_ROOT:-/srv/np-site}/letsencrypt:/etc/letsencrypt:ro
     command: ["nginx", "-g", "daemon off;"]
@@ -98,8 +133,9 @@ services:
       - frontend
 
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/certbot:v5.7.0
     restart: unless-stopped
+    stop_grace_period: 15s
     init: true
     read_only: true
     tmpfs:
@@ -119,7 +155,10 @@ services:
       --webroot --webroot-path /var/www/certbot --quiet;
       sleep 12h & wait $${!}; done'
     pids_limit: 64
+    mem_limit: ${CERTBOT_MEMORY_LIMIT:-256m}
+    cpus: ${CERTBOT_CPU_LIMIT:-0.5}
     logging:
+      driver: json-file
       options:
         max-size: "5m"
         max-file: "3"

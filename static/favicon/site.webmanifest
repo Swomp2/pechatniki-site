@@ -1,0 +1,20 @@
+{
+  "name": "Новые люди - Печатники",
+  "short_name": "НЛ Печатники",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f3fafa",
+  "theme_color": "#47c2c0",
+  "icons": [
+    {
+      "src": "/assets/favicon/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/favicon/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

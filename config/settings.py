@@ -109,6 +109,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "config.middleware.AdminCssMiddleware",
+    "config.middleware.DynamicResponseCacheMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -138,6 +139,16 @@ DATABASES = {
         # Путь можно переопределить env-переменной, чтобы в будущем вынести
         # SQLite-файл в persistent volume без изменения кода.
         "NAME": Path(SQLITE_PATH) if SQLITE_PATH else BASE_DIR / "db.sqlite3",
+        "OPTIONS": {
+            # WAL даёт публичным SELECT не блокироваться на коротких
+            # записях голосов и sessions. FULL сохраняет надёжную
+            # синхронизацию вместо опасного ускорения через OFF.
+            "timeout": get_float_env("DJANGO_SQLITE_TIMEOUT", 20),
+            "init_command": (
+                "PRAGMA journal_mode=WAL; "
+                "PRAGMA synchronous=FULL"
+            ),
+        },
     }
 }
 
@@ -175,7 +186,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = "/static/"
+# Публичный URL намеренно не совпадает ни с STATIC_ROOT,
+# ни с каталогом, который Nginx видит внутри своего контейнера.
+STATIC_URL = "/assets/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

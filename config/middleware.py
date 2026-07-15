@@ -46,3 +46,21 @@ class AdminCssMiddleware:
         response["Content-Length"] = str(len(response.content))
 
         return response
+
+
+class DynamicResponseCacheMiddleware:
+    """Require browsers to revalidate HTML while preserving file policies."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if "text/html" not in response.get("Content-Type", ""):
+            return response
+
+        if not response.has_header("Cache-Control"):
+            response["Cache-Control"] = "private, no-cache"
+
+        return response

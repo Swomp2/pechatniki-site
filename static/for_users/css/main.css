@@ -4,8 +4,8 @@
 
 @font-face {
   font-family: "Golos Text";
-  src: url("../../fonts/Golos/GolosText-VariableFont_wght.ttf")
-    format("truetype");
+  src: url("../../fonts/Golos/GolosText-VariableFont_wght.woff2")
+    format("woff2");
   font-weight: 400 900;
   font-style: normal;
   font-display: swap;
@@ -13,8 +13,8 @@
 
 @font-face {
   font-family: "Unbounded";
-  src: url("../../fonts/Unbounded/Unbounded-VariableFont_wght.ttf")
-    format("truetype");
+  src: url("../../fonts/Unbounded/Unbounded-VariableFont_wght.woff2")
+    format("woff2");
   font-weight: 300 900;
   font-style: normal;
   font-display: swap;

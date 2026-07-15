@@ -1,4 +1,5 @@
 import logging
+import json
 import re
 import time
 import tempfile
@@ -16,8 +17,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.db import IntegrityError, connection, transaction
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 from PIL import Image
@@ -528,22 +530,108 @@ class PublicPageRenderTests(TestCase):
     def test_public_pages_include_browser_and_mobile_favicons(self):
         response = self.client.get(reverse("index"))
 
-        self.assertContains(response, "favicon/heart.ico")
-        self.assertContains(response, "favicon/heart-192.png")
-        self.assertContains(response, "favicon/heart-180.png")
+        self.assertContains(response, 'href="/favicon.ico"')
+        self.assertContains(response, "favicon/favicon-32x32.png")
+        self.assertContains(response, "favicon/favicon-16x16.png")
+        self.assertContains(response, "favicon/apple-touch-icon.png")
+        self.assertContains(response, 'href="/site.webmanifest"')
         self.assertContains(response, 'rel="apple-touch-icon"')
         self.assertContains(response, 'rel="shortcut icon"')
 
-    def test_root_favicon_redirects_to_static_icon(self):
+    def test_root_favicon_returns_real_multisize_ico_without_redirect(self):
         response = self.client.get("/favicon.ico")
 
-        self.assertEqual(response.status_code, 301)
-        self.assertIn("favicon/heart.ico", response["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/x-icon")
+        self.assertEqual(response.content[:4], b"\x00\x00\x01\x00")
+        self.assertNotIn("Location", response)
+        self.assertIn("must-revalidate", response["Cache-Control"])
+
+    def test_webmanifest_returns_required_icons_and_mime_type(self):
+        response = self.client.get(reverse("site_webmanifest"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/manifest+json")
+        manifest = json.loads(response.content)
+        self.assertEqual(manifest["start_url"], "/")
+        self.assertEqual(manifest["display"], "browser")
+        self.assertEqual(
+            {icon["sizes"] for icon in manifest["icons"]},
+            {"192x192", "512x512"},
+        )
+        self.assertTrue(
+            all(icon["src"].startswith("/assets/") for icon in manifest["icons"])
+        )
+
+    def test_public_html_uses_logical_assets_and_revalidates(self):
+        for url_name in ["index", "public_problems", "create_problem"]:
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+                body = response.content.decode()
+
+                self.assertIn("/assets/", body)
+                self.assertNotIn("/static/", body)
+                self.assertNotIn("/staticfiles/", body)
+                self.assertNotIn("/media/", body)
+                self.assertIn("no-cache", response["Cache-Control"])
+                self.assertNotIn("immutable", response["Cache-Control"])
+
+    def test_public_listing_does_not_add_queries_per_problem(self):
+        for index in range(settings.PROBLEM_LIST_PAGE_SIZE):
+            problem = make_problem(
+                Problem.Status.SENT,
+                is_public=True,
+                title=f"Query regression {index}",
+            )
+            ProblemPhoto.objects.create(
+                problem=problem,
+                image=f"problem_photos/query-{index}.jpg",
+            )
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(reverse("public_problems"))
+
+        self.assertEqual(response.status_code, 200)
+        sql_queries = [query["sql"] for query in captured.captured_queries]
+        problem_selects = [
+            query
+            for query in sql_queries
+            if 'FROM "problems_problem"' in query
+        ]
+        photo_selects = [
+            query
+            for query in sql_queries
+            if 'FROM "problems_problemphoto"' in query
+        ]
+        vote_selects = [
+            query
+            for query in sql_queries
+            if 'FROM "problems_problemvote"' in query
+        ]
+
+        self.assertEqual(len(problem_selects), 2)
+        self.assertEqual(len(photo_selects), 1)
+        self.assertEqual(len(vote_selects), 1)
 
     def test_percent_encoded_cyrillic_url_renders(self):
         response = self.client.get(reverse("public_problems"))
 
         self.assertEqual(response.status_code, 200)
+
+    def test_not_found_page_keeps_global_favicon_head(self):
+        response = self.client.get("/missing-page-for-favicon/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(
+            response,
+            'href="/favicon.ico"',
+            status_code=404,
+        )
+        self.assertContains(
+            response,
+            'href="/site.webmanifest"',
+            status_code=404,
+        )
 
     def test_legacy_latin_urls_redirect_permanently(self):
         cases = [
@@ -993,8 +1081,9 @@ class ProblemAdminTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "for_admin/css/main.css")
-        self.assertContains(response, "favicon/heart.ico")
-        self.assertContains(response, "favicon/heart-180.png")
+        self.assertContains(response, 'href="/favicon.ico"')
+        self.assertContains(response, "favicon/apple-touch-icon.png")
+        self.assertContains(response, 'href="/site.webmanifest"')
         self.assertContains(response, 'rel="apple-touch-icon"')
         self.assertContains(response, "Публично")
         self.assertContains(response, "Скрыто")
@@ -1375,8 +1464,8 @@ class DeploymentProtectionTests(TestCase):
             ".env",
             "docker-compose",
             "sqlite",
-            "db-wal",
-            "db-shm",
+            "sqlite(?:3)?(?:-wal|-shm)?",
+            "db(?:-wal|-shm)?",
             "backup",
             "scripts",
             "map",
@@ -1390,14 +1479,47 @@ class DeploymentProtectionTests(TestCase):
         self.assertIn("autoindex off", nginx_config)
         self.assertIn("X-Content-Type-Options", nginx_config)
         self.assertIn("internal;", nginx_config)
-        self.assertIn("disable_symlinks on from=/var/www/media", nginx_config)
-        self.assertIn("/var/www/static:ro", nginx_service)
-        self.assertIn("/var/www/media:ro", nginx_service)
+        self.assertIn("disable_symlinks on from=/srv/protected-media", nginx_config)
+        blocked_prefix_locations = [
+            line
+            for line in nginx_config.splitlines()
+            if "location ~* ^/(?:app|srv|var|home" in line
+        ]
+        self.assertEqual(len(blocked_prefix_locations), 2)
+        for location in blocked_prefix_locations:
+            self.assertNotIn("|problems|", location)
+        self.assertIn("/srv/compiled-static:ro", nginx_service)
+        self.assertIn("/srv/protected-media:ro", nginx_service)
         self.assertNotIn("/app/data", nginx_service)
         self.assertNotIn("/app/media", nginx_service)
         self.assertNotIn("/app/staticfiles", nginx_service)
         self.assertIn("*.sqlite", dockerignore)
         self.assertIn("*.db-wal", dockerignore)
+
+    def test_static_cache_and_privacy_policies_are_separate(self):
+        nginx_config = Path("deploy/nginx/templates/default.conf.template").read_text()
+
+        self.assertIn("location /assets/", nginx_config)
+        self.assertIn("location = /assets/", nginx_config)
+        self.assertIn("max-age=31536000, immutable", nginx_config)
+        self.assertIn("max-age=300, must-revalidate", nginx_config)
+        self.assertIn('location = /favicon.ico', nginx_config)
+        self.assertIn('location = /site.webmanifest', nginx_config)
+        self.assertIn('application/manifest+json', nginx_config)
+        self.assertIn('gzip_vary on', nginx_config)
+        self.assertIn('application/manifest+json', nginx_config)
+        self.assertIn('Cache-Control "private, no-store', nginx_config)
+        self.assertIn('log_format privacy', nginx_config)
+        self.assertNotIn('$request_uri $status', nginx_config)
+
+    def test_gunicorn_does_not_log_token_bearing_request_paths(self):
+        dockerfile = Path("Dockerfile").read_text()
+        compose_config = Path("docker-compose.yml").read_text()
+
+        self.assertNotIn("--access-logfile", dockerfile)
+        self.assertNotIn("--access-logfile", compose_config)
+        self.assertIn("--error-logfile", dockerfile)
+        self.assertIn("--error-logfile", compose_config)
 
     def test_runtime_image_and_compose_are_hardened(self):
         dockerfile = Path("Dockerfile").read_text()
@@ -1440,6 +1562,8 @@ class DeploymentProtectionTests(TestCase):
                 self.assertIn("no-new-privileges:true", service_block)
                 self.assertIn("cap_drop:", service_block)
                 self.assertIn("- ALL", service_block)
+                self.assertIn("mem_limit:", service_block)
+                self.assertIn("cpus:", service_block)
 
         certbot_block = compose_config.split("  certbot:", 1)[1].split("networks:", 1)[0]
 
@@ -1502,6 +1626,65 @@ class DeploymentProtectionTests(TestCase):
 
         self.assertIn("ManifestStaticFilesStorage", settings_source)
         self.assertIn("STATIC_ROOT", settings_source)
+        self.assertIn('STATIC_URL = "/assets/"', settings_source)
+        self.assertIn('PRAGMA journal_mode=WAL', settings_source)
+        self.assertIn('PRAGMA synchronous=FULL', settings_source)
+
+
+class WebSecurityRegressionTests(TestCase):
+    def test_csrf_is_required_for_public_writes(self):
+        client = Client(enforce_csrf_checks=True)
+        problem = make_problem(Problem.Status.SENT, is_public=True)
+
+        form_response = client.post(reverse("create_problem"), make_form_data())
+        vote_response = client.post(
+            reverse("upvote_problem", args=[problem.id]),
+            {"desired_voted": "true"},
+        )
+
+        self.assertEqual(form_response.status_code, 403)
+        self.assertEqual(vote_response.status_code, 403)
+
+    @override_settings(ALLOWED_HOSTS=["allowed.test"])
+    def test_unknown_host_is_rejected(self):
+        response = self.client.get("/", HTTP_HOST="attacker.invalid")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("attacker.invalid", response.content.decode())
+
+    def test_stored_user_text_is_escaped(self):
+        payload = '<img src=x onerror="alert(1)">'
+        make_problem(
+            Problem.Status.SENT,
+            is_public=True,
+            title=payload,
+        )
+
+        response = self.client.get(reverse("public_problems"))
+        body = response.content.decode()
+
+        self.assertNotIn(payload, body)
+        self.assertNotIn('src=x onerror="alert(1)"', body)
+        self.assertIn("&lt;img", body)
+
+    def test_legacy_redirect_cannot_become_external_redirect(self):
+        response = self.client.get("/problems/?next=https://attacker.invalid/")
+
+        self.assertEqual(response.status_code, 301)
+        self.assertTrue(response["Location"].startswith("/%D0%BF"))
+        self.assertNotRegex(response["Location"], r"^https?://")
+
+    def test_static_source_maps_and_physical_paths_are_not_present(self):
+        forbidden_suffixes = {".map", ".bak", ".old", ".tmp"}
+        forbidden_names = {".env", "db.sqlite3"}
+
+        for path in Path("static").rglob("*"):
+            if not path.is_file():
+                continue
+
+            with self.subTest(path=path):
+                self.assertNotIn(path.suffix, forbidden_suffixes)
+                self.assertNotIn(path.name, forbidden_names)
 
 
 class FrontendSourceTests(TestCase):
@@ -1647,10 +1830,36 @@ class FrontendSourceTests(TestCase):
         self.assertEqual(script.count("handleZoomDoubleClick"), 2)
 
     def test_favicon_assets_exist_for_desktop_and_mobile_browsers(self):
+        expected_sizes = {
+            Path("static/favicon/favicon-16x16.png"): (16, 16),
+            Path("static/favicon/favicon-32x32.png"): (32, 32),
+            Path("static/favicon/apple-touch-icon.png"): (180, 180),
+            Path("static/favicon/android-chrome-192x192.png"): (192, 192),
+            Path("static/favicon/android-chrome-512x512.png"): (512, 512),
+        }
+
+        for path, expected_size in expected_sizes.items():
+            with self.subTest(path=path):
+                self.assertTrue(path.exists())
+                with Image.open(path) as image:
+                    self.assertEqual(image.size, expected_size)
+
+        with Image.open("static/favicon/heart.ico") as icon:
+            self.assertTrue({(16, 16), (32, 32), (48, 48)}.issubset(icon.ico.sizes()))
+
+    def test_woff2_fonts_are_used_without_changing_font_families(self):
+        user_css = Path("static/for_users/css/main.css").read_text()
+        admin_css = Path("static/for_admin/css/main.css").read_text()
+
         for path in [
-            Path("static/favicon/heart.ico"),
-            Path("static/favicon/heart-180.png"),
-            Path("static/favicon/heart-192.png"),
+            Path("static/fonts/Golos/GolosText-VariableFont_wght.woff2"),
+            Path("static/fonts/Unbounded/Unbounded-VariableFont_wght.woff2"),
         ]:
             with self.subTest(path=path):
                 self.assertTrue(path.exists())
+
+        for css in [user_css, admin_css]:
+            self.assertIn('font-family: "Golos Text"', css)
+            self.assertIn('font-family: "Unbounded"', css)
+            self.assertIn('format("woff2")', css)
+            self.assertNotIn('VariableFont_wght.ttf', css)

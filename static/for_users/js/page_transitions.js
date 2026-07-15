@@ -441,11 +441,7 @@ function setupPageTransitions() {
     }
 
     // Статику, media и файлы открывает браузер: их нельзя подменять через <main>.
-    if (nextUrl.pathname.startsWith("/static/")) {
-      return false;
-    }
-
-    if (nextUrl.pathname.startsWith("/media/")) {
+    if (nextUrl.pathname.startsWith("/assets/")) {
       return false;
     }
 
