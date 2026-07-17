@@ -87,8 +87,8 @@ services:
         condition: service_healthy
     environment:
       NGINX_SERVER_NAME: ${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env} ${WWW_DOMAIN:-}
-      NGINX_SSL_CERTIFICATE: /etc/letsencrypt/live/${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}/fullchain.pem
-      NGINX_SSL_CERTIFICATE_KEY: /etc/letsencrypt/live/${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}/privkey.pem
+      NGINX_SSL_CERTIFICATE: /etc/letsencrypt/live/${CERTBOT_CERTIFICATE_NAME:-${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}}/fullchain.pem
+      NGINX_SSL_CERTIFICATE_KEY: /etc/letsencrypt/live/${CERTBOT_CERTIFICATE_NAME:-${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}}/privkey.pem
       NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-300m}
     ports:
       - "80:80"
@@ -117,7 +117,7 @@ services:
         max-size: "10m"
         max-file: "5"
     volumes:
-      - ./deploy/nginx/templates:/etc/nginx/templates:ro
+      - ./deploy/nginx/templates/${NGINX_TEMPLATE:-production.conf.template}:/etc/nginx/templates/default.conf.template:ro
       - ${NP_SITE_ROOT:-/srv/np-site}/staticfiles:/srv/compiled-static:ro
       - ${NP_SITE_ROOT:-/srv/np-site}/media:/srv/protected-media:ro
       - ${NP_SITE_ROOT:-/srv/np-site}/certbot/www:/var/www/certbot:ro
@@ -147,6 +147,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    environment:
+      PRIMARY_DOMAIN: ${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}
+      WWW_DOMAIN: ${WWW_DOMAIN:-}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:?set CERTBOT_EMAIL in .env}
+      CERTBOT_CERTIFICATE_NAME: ${CERTBOT_CERTIFICATE_NAME:-${PRIMARY_DOMAIN:?set PRIMARY_DOMAIN in .env}}
     volumes:
       - ${NP_SITE_ROOT:-/srv/np-site}/certbot/www:/var/www/certbot
       - ${NP_SITE_ROOT:-/srv/np-site}/letsencrypt:/etc/letsencrypt

@@ -1,0 +1,40 @@
+server_tokens off;
+
+# Bootstrap-only HTTP configuration. It exposes one ACME token file at a time
+# from the shared webroot and deliberately does not proxy the application.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${NGINX_SERVER_NAME};
+    autoindex off;
+
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        return 200 "ok\n";
+    }
+
+    location ~ ^/\.well-known/acme-challenge/[A-Za-z0-9_-]+$ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+        autoindex off;
+        disable_symlinks on from=/var/www/certbot;
+        limit_except GET HEAD {
+            deny all;
+        }
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+    }
+
+    location / {
+        default_type text/plain;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        return 404;
+    }
+}

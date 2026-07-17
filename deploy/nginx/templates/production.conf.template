@@ -76,10 +76,15 @@ server {
         return 200 "ok\n";
     }
 
-    location /.well-known/acme-challenge/ {
+    location ~ ^/\.well-known/acme-challenge/[A-Za-z0-9_-]+$ {
         root /var/www/certbot;
         default_type text/plain;
         try_files $uri =404;
+        autoindex off;
+        disable_symlinks on from=/var/www/certbot;
+        limit_except GET HEAD {
+            deny all;
+        }
     }
 
     location ~ (^|/)\.(?!well-known/) {

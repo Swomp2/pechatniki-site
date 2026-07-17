@@ -1456,7 +1456,9 @@ class DeploymentProtectionTests(TestCase):
                 )
 
     def test_nginx_denies_dangerous_paths_and_has_no_database_volume(self):
-        nginx_config = Path("deploy/nginx/templates/default.conf.template").read_text()
+        nginx_config = Path(
+            "deploy/nginx/templates/production.conf.template"
+        ).read_text()
         compose_config = Path("docker-compose.yml").read_text()
         dockerignore = Path(".dockerignore").read_text()
         nginx_http_preamble = nginx_config.split("upstream django_app", 1)[0]
@@ -1500,7 +1502,9 @@ class DeploymentProtectionTests(TestCase):
         self.assertIn("*.db-wal", dockerignore)
 
     def test_static_cache_and_privacy_policies_are_separate(self):
-        nginx_config = Path("deploy/nginx/templates/default.conf.template").read_text()
+        nginx_config = Path(
+            "deploy/nginx/templates/production.conf.template"
+        ).read_text()
 
         self.assertIn("location /assets/", nginx_config)
         self.assertIn("location = /assets/", nginx_config)
@@ -1514,6 +1518,75 @@ class DeploymentProtectionTests(TestCase):
         self.assertIn('Cache-Control "private, no-store', nginx_config)
         self.assertIn('log_format privacy', nginx_config)
         self.assertNotIn('$request_uri $status', nginx_config)
+
+    def test_acme_nginx_template_is_http_only_and_does_not_expose_the_app(self):
+        acme_config = Path("deploy/nginx/templates/acme.conf.template").read_text()
+
+        self.assertIn("listen 80;", acme_config)
+        self.assertIn("listen [::]:80;", acme_config)
+        self.assertIn("server_name ${NGINX_SERVER_NAME};", acme_config)
+        self.assertIn(
+            r"location ~ ^/\.well-known/acme-challenge/[A-Za-z0-9_-]+$",
+            acme_config,
+        )
+        self.assertIn("root /var/www/certbot;", acme_config)
+        self.assertIn("try_files $uri =404;", acme_config)
+        self.assertIn("disable_symlinks on from=/var/www/certbot;", acme_config)
+        self.assertIn("limit_except GET HEAD", acme_config)
+        self.assertIn("server_tokens off;", acme_config)
+        self.assertIn("autoindex off;", acme_config)
+        self.assertIn("return 404;", acme_config)
+
+        for forbidden_directive in [
+            "listen 443",
+            "ssl_certificate",
+            "ssl_certificate_key",
+            "proxy_pass",
+            "django_app",
+        ]:
+            with self.subTest(forbidden_directive=forbidden_directive):
+                self.assertNotIn(forbidden_directive, acme_config)
+
+    def test_compose_selects_one_nginx_template_and_shares_only_acme_storage(self):
+        compose_config = Path("docker-compose.yml").read_text()
+        nginx_service = compose_config.split("  nginx:", 1)[1].split(
+            "  certbot:", 1
+        )[0]
+        certbot_service = compose_config.split("  certbot:", 1)[1].split(
+            "networks:", 1
+        )[0]
+        web_service = compose_config.split("  web:", 1)[1].split("  nginx:", 1)[0]
+
+        self.assertIn(
+            "./deploy/nginx/templates/${NGINX_TEMPLATE:-production.conf.template}"
+            ":/etc/nginx/templates/default.conf.template:ro",
+            nginx_service,
+        )
+        self.assertNotIn(
+            "./deploy/nginx/templates:/etc/nginx/templates:ro",
+            nginx_service,
+        )
+        self.assertIn(
+            "${NP_SITE_ROOT:-/srv/np-site}/certbot/www:/var/www/certbot:ro",
+            nginx_service,
+        )
+        self.assertIn(
+            "${NP_SITE_ROOT:-/srv/np-site}/letsencrypt:/etc/letsencrypt:ro",
+            nginx_service,
+        )
+        self.assertIn(
+            "${NP_SITE_ROOT:-/srv/np-site}/certbot/www:/var/www/certbot",
+            certbot_service,
+        )
+        self.assertIn(
+            "${NP_SITE_ROOT:-/srv/np-site}/letsencrypt:/etc/letsencrypt",
+            certbot_service,
+        )
+        self.assertNotIn("env_file:", certbot_service)
+        self.assertNotIn("/app/data", certbot_service)
+        self.assertNotIn("/var/www/certbot", web_service)
+        self.assertNotIn("/etc/letsencrypt", web_service)
+        self.assertIn("CERTBOT_CERTIFICATE_NAME", compose_config)
 
     def test_gunicorn_does_not_log_token_bearing_request_paths(self):
         dockerfile = Path("Dockerfile").read_text()
