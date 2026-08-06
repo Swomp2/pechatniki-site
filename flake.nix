@@ -15,7 +15,7 @@
       };
     in
     {
-      desShells."${system}".default = pkgs.mkShell {
+      devShells."${system}".default = pkgs.mkShell {
         packages = with pkgs; [
           uv
           python313
